@@ -81,7 +81,7 @@ button.icon-sm .codicon {
   }
 }
 
-.syncpanel {
+.confirm {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -92,18 +92,22 @@ button.icon-sm .codicon {
   font-size: 0.9em;
 }
 
-.syncpanel label {
+.confirm-msg {
+  margin: 0;
+}
+
+.confirm label {
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
-.syncpanel input[type='checkbox'] {
+.confirm input[type='checkbox'] {
   margin: 0;
   accent-color: var(--vscode-button-background);
 }
 
-.syncpanel .row {
+.confirm .row {
   display: flex;
   gap: 6px;
 }

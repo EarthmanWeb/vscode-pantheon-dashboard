@@ -73,17 +73,10 @@ class DashboardViewProvider {
           mode: await this.api.connectionMode(msg.site, msg.env)
         };
       case 'setMode': {
-        if (msg.mode === 'git') {
+        if (msg.mode === 'git' && !msg.confirmed) {
           const files = await this.api.diffstat(msg.site, msg.env);
           if (files.length) {
-            const choice = await vscode.window.showWarningMessage(
-              `Switching ${msg.site}.${msg.env} to Git mode discards ${files.length} uncommitted SFTP change(s).`,
-              { modal: true },
-              'Switch to Git'
-            );
-            if (choice !== 'Switch to Git') {
-              return { type: 'setModeCancelled' };
-            }
+            return { type: 'confirmModeSwitch', count: files.length };
           }
         }
         return {
@@ -117,19 +110,6 @@ class DashboardViewProvider {
         const what = [msg.db && 'database', msg.files && 'files']
           .filter(Boolean)
           .join(' and ');
-        const choice = await vscode.window.showWarningMessage(
-          `Overwrite the ${what} on ${msg.site}.${msg.to.toUpperCase()} with a copy from ${msg.from.toUpperCase()}?`,
-          {
-            modal: true,
-            detail: msg.cc
-              ? 'Caches will be cleared afterwards.'
-              : 'Caches will not be cleared.'
-          },
-          'Sync'
-        );
-        if (choice !== 'Sync') {
-          return { type: 'syncCancelled' };
-        }
         await this.api.cloneContent(msg.site, msg.from, msg.to, {
           db: msg.db,
           files: msg.files,
@@ -141,14 +121,6 @@ class DashboardViewProvider {
         return { type: 'contentSynced' };
       }
       case 'clearCache': {
-        const choice = await vscode.window.showWarningMessage(
-          `Clear all caches on ${msg.site}.${msg.env.toUpperCase()}?`,
-          { modal: true },
-          'Clear Caches'
-        );
-        if (choice !== 'Clear Caches') {
-          return { type: 'clearCacheCancelled' };
-        }
         await this.api.clearCache(msg.site, msg.env);
         vscode.window.showInformationMessage(
           `Caches cleared on ${msg.site}.${msg.env}.`
@@ -156,15 +128,16 @@ class DashboardViewProvider {
         return { type: 'cacheCleared' };
       }
       case 'push': {
-        const choice = await vscode.window.showWarningMessage(
-          `Push ${msg.count} commit(s) to origin/${msg.branch}? This deploys to ${msg.site}.${msg.env}.`,
-          { modal: true },
-          'Push'
-        );
-        if (choice !== 'Push') {
-          return { type: 'pushCancelled' };
-        }
         await this.api.push(msg.site, msg.env, msg.branch);
+        if (msg.sync) {
+          await this.api.cloneContent(msg.site, msg.sync.from, msg.env, {
+            db: msg.sync.db,
+            files: msg.sync.files,
+            cc: msg.cc
+          });
+        } else if (msg.cc) {
+          await this.api.clearCache(msg.site, msg.env);
+        }
         return {
           type: 'unpushed',
           branch: msg.branch,
@@ -178,15 +151,16 @@ class DashboardViewProvider {
           commits: await this.api.pendingCommits(msg.site, msg.env)
         };
       case 'deploy': {
-        const choice = await vscode.window.showWarningMessage(
-          `Deploy ${msg.count} commit(s) to ${msg.site}.${msg.env.toUpperCase()}?`,
-          { modal: true, detail: `Note: ${msg.note}` },
-          'Deploy'
-        );
-        if (choice !== 'Deploy') {
-          return { type: 'deployCancelled', env: msg.env };
+        await this.api.deploy(msg.site, msg.env, msg.note, {
+          cc: msg.cc && !msg.sync
+        });
+        if (msg.sync) {
+          await this.api.cloneContent(msg.site, msg.sync.from, msg.env, {
+            db: msg.sync.db,
+            files: msg.sync.files,
+            cc: msg.cc
+          });
         }
-        await this.api.deploy(msg.site, msg.env, msg.note);
         vscode.window.showInformationMessage(
           `Deployed to ${msg.site}.${msg.env}.`
         );

@@ -139,9 +139,13 @@ class PantheonApi {
     });
   }
 
-  async deploy(site, env, note) {
+  async deploy(site, env, note, { cc = false } = {}) {
+    const args = ['env:deploy', `${site}.${env}`, `--note=${note}`];
+    if (cc) {
+      args.push('--cc');
+    }
     const since = Date.now() / 1000;
-    await this.terminus(['env:deploy', `${site}.${env}`, `--note=${note}`]);
+    await this.terminus(args);
     await this.waitForEnv(site, env, since);
   }
 

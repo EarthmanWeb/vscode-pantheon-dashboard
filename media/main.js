@@ -43,6 +43,8 @@
   // Cards that offer content sync (live is never a sync target).
   const SYNC_KEYS = ['dev', 'test'];
   const pendingCounts = { test: 0, live: 0 };
+  // Open confirm per card: { resolve, opts, yesBtn }.
+  const confirms = {};
 
   const esc = (text) => {
     const div = document.createElement('div');
@@ -68,6 +70,9 @@
       .forEach((elm) => {
         elm.disabled = busy;
       });
+    if (busy && confirms[key]) {
+      confirms[key].yesBtn.disabled = true;
+    }
   };
 
   const syncButtons = () => {
@@ -79,11 +84,6 @@
     for (const env of ['test', 'live']) {
       byId(`${env}-deploy`).disabled =
         !byId(`${env}-note`).value.trim() || !pendingCounts[env];
-    }
-    for (const key of SYNC_KEYS) {
-      byId(`${key}-sync-go`).disabled =
-        byId(`card-${key}`).classList.contains('busy') ||
-        (!byId(`${key}-sync-db`).checked && !byId(`${key}-sync-files`).checked);
     }
   };
 
@@ -176,31 +176,26 @@
       (SYNC_KEYS.includes(key)
         ? iconButton(`data-sync="${key}"`, 'sync', 'Sync Content')
         : '') + iconButton(`data-clear="${key}"`, 'clear-all', 'Clear Caches');
-    // Slide-down content sync form; options are filled on open.
-    const syncPanel = (key) =>
-      SYNC_KEYS.includes(key)
-        ? `
-      <div class="slide" id="${key}-syncpanel" inert>
+    // Slide-down inline confirm; content is filled on open by openConfirm().
+    const confirmPanel = (key) => `
+      <div class="slide" id="${key}-confirm" inert>
         <div>
-          <div class="syncpanel">
-            <label>Sync from <select id="${key}-sync-from"></select></label>
-            <label><input type="checkbox" id="${key}-sync-db"> Database</label>
-            <label><input type="checkbox" id="${key}-sync-files"> Files</label>
-            <label><input type="checkbox" id="${key}-sync-cc"> Clear caches afterwards</label>
+          <div class="confirm">
+            <p class="confirm-msg" id="${key}-confirm-msg"></p>
+            <div id="${key}-confirm-fields"></div>
             <div class="row">
-              <button id="${key}-sync-go" disabled>Sync</button>
-              <button class="secondary" id="${key}-sync-cancel">Cancel</button>
+              <button id="${key}-confirm-yes"></button>
+              <button class="secondary" id="${key}-confirm-cancel">Cancel</button>
             </div>
           </div>
         </div>
-      </div>`
-        : '';
+      </div>`;
     const deployCard = (env, label) => `
       <section class="card" id="card-${env}">
         <h2>${env}
           <span class="h2-actions"><span class="badge" id="${env}-badge"></span>${actions(env)}</span>
         </h2>
-        ${syncPanel(env)}
+        ${confirmPanel(env)}
         <div class="status" id="${env}-status"></div>
         <div class="commitbox">
           <textarea id="${env}-note" rows="2" placeholder="Deploy note"></textarea>
@@ -227,7 +222,7 @@
             <select id="dev-env"><option value="dev" selected>dev</option></select>
             <span class="h2-actions"><span class="badge" id="dev-badge"></span>${actions('dev')}</span>
           </h2>
-          ${syncPanel('dev')}
+          ${confirmPanel('dev')}
           <div class="toggle" id="dev-toggle">
             <button data-mode="sftp">SFTP</button>
             <button data-mode="git">Git</button>
@@ -252,19 +247,16 @@
       btn.addEventListener('click', () => clearCache(btn.dataset.clear));
     });
     document.querySelectorAll('[data-sync]').forEach((btn) => {
-      btn.addEventListener('click', () => toggleSync(btn.dataset.sync));
+      btn.addEventListener('click', () => toggleSyncConfirm(btn.dataset.sync));
     });
-    for (const key of SYNC_KEYS) {
-      byId(`${key}-sync-db`).addEventListener('change', syncButtons);
-      byId(`${key}-sync-files`).addEventListener('change', syncButtons);
-      byId(`${key}-sync-go`).addEventListener('click', () => syncContent(key));
-      byId(`${key}-sync-cancel`).addEventListener('click', () =>
-        toggleSync(key, false)
+    for (const key of ['dev', 'test', 'live']) {
+      byId(`${key}-confirm-cancel`).addEventListener('click', () =>
+        closeConfirm(key)
       );
     }
     byId('dev-env').addEventListener('change', (event) => {
       state.devEnv = event.target.value;
-      toggleSync('dev', false);
+      closeConfirm('dev');
       refreshDev();
     });
     byId('dev-toggle').addEventListener('click', (event) => {
@@ -288,6 +280,47 @@
     document.querySelectorAll('#dev-toggle button').forEach((btn) => {
       btn.classList.toggle('active', btn.dataset.mode === mode);
     });
+  };
+
+  const requestSetMode = async (env, mode, confirmed) => {
+    setBusy('dev', true);
+    setStatus('dev', spin(`Switching to ${mode.toUpperCase()}…`));
+    try {
+      const res = await request({
+        type: 'setMode',
+        site: state.site,
+        env,
+        mode,
+        confirmed
+      });
+      if (res.type === 'confirmModeSwitch') {
+        setStatus('dev', '');
+        setBusy('dev', false);
+        syncButtons();
+        const result = await openConfirm('dev', {
+          message: `Switching ${env} to Git mode discards ${res.count} uncommitted SFTP change(s).`,
+          yesLabel: 'Switch to Git'
+        });
+        if (!result) {
+          return;
+        }
+        await requestSetMode(env, mode, true);
+        return;
+      }
+      setBusy('dev', false);
+      await refreshDev();
+    } catch (err) {
+      setStatus('dev', fail(err));
+      setBusy('dev', false);
+      syncButtons();
+    }
+  };
+
+  const switchMode = async (mode) => {
+    if (mode === state.devMode) {
+      return;
+    }
+    await requestSetMode(state.devEnv, mode, false);
   };
 
   // ── Actions ──
@@ -374,50 +407,108 @@
     refreshPending('live');
   };
 
-  const switchMode = async (mode) => {
-    if (mode === state.devMode) {
-      return;
+  // ── Inline confirm (slide-down) ──
+  // Sync target: the dev card syncs into the selected dev/multidev env.
+  const syncTarget = (key) => (key === 'dev' ? state.devEnv : key);
+
+  // Resolve any confirm still open on `key` with null (new confirm replaces
+  // it, or the card is navigated away from).
+  const closeConfirm = (key) => {
+    const panel = byId(`${key}-confirm`);
+    panel.classList.remove('open');
+    panel.inert = true;
+    byId(`${key}-confirm-fields`).innerHTML = '';
+    const entry = confirms[key];
+    delete confirms[key];
+    if (entry) {
+      entry.resolve(null);
     }
-    setBusy('dev', true);
-    setStatus(
-      'dev',
-      spin(`Switching to ${mode.toUpperCase()} — waiting for Pantheon workflow…`)
-    );
-    try {
-      const res = await request({
-        type: 'setMode',
-        site: state.site,
-        env: state.devEnv,
-        mode
-      });
-      if (res.type === 'setModeCancelled') {
-        setStatus('dev', '');
-        setBusy('dev', false);
-        syncButtons();
+  };
+
+  const confirmFieldsHtml = (key, opts) => {
+    let html = '';
+    if (opts.sync) {
+      const target = syncTarget(key);
+      const fromOptions = ['dev', 'test', 'live', ...state.multidevs]
+        .filter((e) => e !== target)
+        .map((e) => `<option value="${esc(e)}">${esc(e)}</option>`)
+        .join('');
+      html += `
+        <label>Sync from <select id="${key}-confirm-from">${fromOptions}</select></label>
+        <label><input type="checkbox" id="${key}-confirm-db"> Database</label>
+        <label><input type="checkbox" id="${key}-confirm-files"> Files</label>`;
+    }
+    if (opts.cc) {
+      html += `<label><input type="checkbox" id="${key}-confirm-cc"> Clear caches afterwards</label>`;
+    }
+    return html;
+  };
+
+  // Opens the inline confirm on `key`. Resolves to null on Cancel, or
+  // { from, db, files, cc } (sync/cc fields only when requested) on yes.
+  // Opening a new confirm on a card that already has one resolves it null.
+  const openConfirm = (key, opts) => {
+    if (confirms[key]) {
+      closeConfirm(key);
+    }
+    const panel = byId(`${key}-confirm`);
+    byId(`${key}-confirm-msg`).textContent = opts.message;
+    byId(`${key}-confirm-fields`).innerHTML = confirmFieldsHtml(key, opts);
+    const yesBtn = byId(`${key}-confirm-yes`);
+    yesBtn.textContent = opts.yesLabel;
+    const updateYes = () => {
+      if (byId(`card-${key}`).classList.contains('busy')) {
+        yesBtn.disabled = true;
         return;
       }
-      setBusy('dev', false);
-      await refreshDev();
-    } catch (err) {
-      setStatus('dev', fail(err));
-      setBusy('dev', false);
-      syncButtons();
+      yesBtn.disabled =
+        opts.requireContent &&
+        !byId(`${key}-confirm-db`).checked &&
+        !byId(`${key}-confirm-files`).checked;
+    };
+    if (opts.sync) {
+      byId(`${key}-confirm-db`).addEventListener('change', updateYes);
+      byId(`${key}-confirm-files`).addEventListener('change', updateYes);
     }
+    updateYes();
+    panel.classList.add('open');
+    panel.inert = false;
+    return new Promise((resolve) => {
+      confirms[key] = { resolve, opts, yesBtn };
+      yesBtn.onclick = () => {
+        const result = {};
+        if (opts.sync) {
+          result.from = byId(`${key}-confirm-from`).value;
+          result.db = byId(`${key}-confirm-db`).checked;
+          result.files = byId(`${key}-confirm-files`).checked;
+        }
+        if (opts.cc) {
+          result.cc = byId(`${key}-confirm-cc`).checked;
+        }
+        panel.classList.remove('open');
+        panel.inert = true;
+        byId(`${key}-confirm-fields`).innerHTML = '';
+        delete confirms[key];
+        resolve(result);
+      };
+    });
   };
 
   // `key` is the card (dev/test/live); the dev card targets the selected env.
   const clearCache = async (key) => {
     const env = key === 'dev' ? state.devEnv : key;
+    const res = await openConfirm(key, {
+      message: `Clear all caches on ${env}?`,
+      yesLabel: 'Yes'
+    });
+    if (!res) {
+      return;
+    }
     setBusy(key, true);
-    setStatus(key, spin(`Clearing caches on ${env} — waiting for Pantheon…`));
+    setStatus(key, spin(`Clearing caches on ${env}…`));
     try {
-      const res = await request({ type: 'clearCache', site: state.site, env });
-      setStatus(
-        key,
-        res.type === 'cacheCleared'
-          ? `<div class="statusblock">Caches cleared on ${esc(env)}.</div>`
-          : ''
-      );
+      await request({ type: 'clearCache', site: state.site, env });
+      setStatus(key, `<div class="statusblock">Caches cleared on ${esc(env)}.</div>`);
     } catch (err) {
       setStatus(key, fail(err));
     }
@@ -425,62 +516,45 @@
     syncButtons();
   };
 
-  // Sync target: the dev card syncs into the selected dev/multidev env.
-  const syncTarget = (key) => (key === 'dev' ? state.devEnv : key);
-
-  // Open fills "Sync from" with every env except the target; close resets
-  // the checkboxes to their unchecked defaults.
-  const toggleSync = (key, open) => {
-    const panel = byId(`${key}-syncpanel`);
-    const show = open === undefined ? !panel.classList.contains('open') : open;
-    if (show) {
-      const target = syncTarget(key);
-      byId(`${key}-sync-from`).innerHTML = [
-        'dev',
-        'test',
-        'live',
-        ...state.multidevs
-      ]
-        .filter((e) => e !== target)
-        .map((e) => `<option value="${esc(e)}">${esc(e)}</option>`)
-        .join('');
-    } else {
-      for (const part of ['db', 'files', 'cc']) {
-        byId(`${key}-sync-${part}`).checked = false;
-      }
+  // Sync Content icon toggles: clicking it while that card's sync confirm
+  // is open closes it.
+  const toggleSyncConfirm = (key) => {
+    if (confirms[key] && confirms[key].opts.yesLabel === 'Sync') {
+      closeConfirm(key);
+      return;
     }
-    panel.classList.toggle('open', show);
-    panel.inert = !show;
-    syncButtons();
+    syncContent(key);
   };
 
   const syncContent = async (key) => {
     const to = syncTarget(key);
-    const from = byId(`${key}-sync-from`).value;
+    const res = await openConfirm(key, {
+      message: `Sync content into ${to}`,
+      sync: true,
+      cc: true,
+      yesLabel: 'Sync',
+      requireContent: true
+    });
+    if (!res) {
+      return;
+    }
+    const { from, db, files, cc } = res;
     setBusy(key, true);
-    setStatus(
-      key,
-      spin(`Syncing ${from} → ${to} — waiting for Pantheon workflows…`)
-    );
+    setStatus(key, spin(`Syncing ${from} → ${to}…`));
     try {
-      const res = await request({
+      await request({
         type: 'syncContent',
         site: state.site,
         from,
         to,
-        db: byId(`${key}-sync-db`).checked,
-        files: byId(`${key}-sync-files`).checked,
-        cc: byId(`${key}-sync-cc`).checked
+        db,
+        files,
+        cc
       });
-      if (res.type === 'contentSynced') {
-        toggleSync(key, false);
-        setStatus(
-          key,
-          `<div class="statusblock">Synced ${esc(from)} → ${esc(to)}.</div>`
-        );
-      } else {
-        setStatus(key, '');
-      }
+      setStatus(
+        key,
+        `<div class="statusblock">Synced ${esc(from)} → ${esc(to)}.</div>`
+      );
     } catch (err) {
       setStatus(key, fail(err));
     }
@@ -533,26 +607,28 @@
   // Git mode: push local commits to origin, deploying them to the env.
   const syncDev = async (branch, count) => {
     const env = state.devEnv;
+    const res = await openConfirm('dev', {
+      message: `Push ${count} commit(s) to origin/${branch}? This deploys to ${env}.`,
+      sync: true,
+      cc: true,
+      yesLabel: 'Push'
+    });
+    if (!res) {
+      return;
+    }
     setBusy('dev', true);
-    setStatus(
-      'dev',
-      spin(`Pushing to origin/${branch} — waiting for Pantheon sync…`)
-    );
+    setStatus('dev', spin(`Pushing to origin/${branch}…`));
     try {
-      const res = await request({
+      const result = await request({
         type: 'push',
         site: state.site,
         env,
         branch,
-        count
+        count,
+        cc: res.cc,
+        sync: res.db || res.files ? { from: res.from, db: res.db, files: res.files } : null
       });
-      if (res.type === 'pushCancelled') {
-        setStatus('dev', '');
-        setBusy('dev', false);
-        syncButtons();
-        return;
-      }
-      renderUnpushed(res.branch, res.commits);
+      renderUnpushed(result.branch, result.commits);
       setStatus('dev', '');
     } catch (err) {
       setStatus('dev', fail(err));
@@ -566,10 +642,7 @@
     const message = byId('dev-message').value.trim();
     const env = state.devEnv;
     setBusy('dev', true);
-    setStatus(
-      'dev',
-      spin(`Committing on ${env} — waiting for Pantheon workflow…`)
-    );
+    setStatus('dev', spin(`Committing on ${env}…`));
     try {
       const { files } = await request({
         type: 'commit',
@@ -590,22 +663,31 @@
 
   const deployEnv = async (env) => {
     const note = byId(`${env}-note`).value.trim();
+    const count = pendingCounts[env];
+    const confirmed = await openConfirm(env, {
+      message: `Deploy ${count} commit(s) to ${env.toUpperCase()}?`,
+      sync: env === 'test',
+      cc: true,
+      yesLabel: 'Deploy'
+    });
+    if (!confirmed) {
+      return;
+    }
     setBusy(env, true);
-    setStatus(env, spin(`Deploying to ${env} — waiting for Pantheon workflows…`));
+    setStatus(env, spin(`Deploying to ${env}…`));
     try {
       const res = await request({
         type: 'deploy',
         site: state.site,
         env,
         note,
-        count: pendingCounts[env]
+        count,
+        cc: confirmed.cc,
+        sync:
+          env === 'test' && (confirmed.db || confirmed.files)
+            ? { from: confirmed.from, db: confirmed.db, files: confirmed.files }
+            : null
       });
-      if (res.type === 'deployCancelled') {
-        setStatus(env, '');
-        setBusy(env, false);
-        syncButtons();
-        return;
-      }
       byId(`${env}-note`).value = '';
       renderPending(env, res.commits);
       setStatus(env, '');
