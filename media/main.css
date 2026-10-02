@@ -23,12 +23,16 @@ header {
 
 /* Icon-only refresh, pinned to the right end of row 1 */
 button.icon {
+  display: inline-flex;
+  align-items: center;
   margin-left: auto;
-  padding: 0 6px;
+  padding: 4px;
   background: transparent;
   color: var(--vscode-foreground);
-  font-size: 1.6em;
-  line-height: 1.2;
+}
+
+button.icon .codicon {
+  font-size: 20px;
 }
 
 button.icon:hover:not(:disabled) {
@@ -43,8 +47,65 @@ button.icon:hover:not(:disabled) {
 
 button.icon-sm {
   margin-left: 0;
-  padding: 0 4px;
-  font-size: 1.1rem;
+  padding: 2px;
+}
+
+button.icon-sm .codicon {
+  font-size: 16px;
+}
+
+/* Slide-down: 0fr -> 1fr row animates to content height. The negative
+   margin cancels the card's flex gap while collapsed. */
+.slide {
+  display: grid;
+  grid-template-rows: 0fr;
+  margin-top: -10px;
+  transition:
+    grid-template-rows 0.2s ease,
+    margin-top 0.2s ease;
+}
+
+.slide.open {
+  grid-template-rows: 1fr;
+  margin-top: 0;
+}
+
+.slide > div {
+  min-height: 0;
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slide {
+    transition: none;
+  }
+}
+
+.syncpanel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 4px;
+  background: var(--vscode-list-hoverBackground);
+  font-size: 0.9em;
+}
+
+.syncpanel label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.syncpanel input[type='checkbox'] {
+  margin: 0;
+  accent-color: var(--vscode-button-background);
+}
+
+.syncpanel .row {
+  display: flex;
+  gap: 6px;
 }
 
 select {

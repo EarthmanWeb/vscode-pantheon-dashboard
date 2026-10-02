@@ -108,8 +108,37 @@ class DashboardViewProvider {
         return {
           type: 'unpushed',
           branch,
-          commits: await this.api.unpushedCommits(branch)
+          commits: await this.api.unpushedCommits(branch, {
+            fetch: msg.fetch
+          })
         };
+      }
+      case 'syncContent': {
+        const what = [msg.db && 'database', msg.files && 'files']
+          .filter(Boolean)
+          .join(' and ');
+        const choice = await vscode.window.showWarningMessage(
+          `Overwrite the ${what} on ${msg.site}.${msg.to.toUpperCase()} with a copy from ${msg.from.toUpperCase()}?`,
+          {
+            modal: true,
+            detail: msg.cc
+              ? 'Caches will be cleared afterwards.'
+              : 'Caches will not be cleared.'
+          },
+          'Sync'
+        );
+        if (choice !== 'Sync') {
+          return { type: 'syncCancelled' };
+        }
+        await this.api.cloneContent(msg.site, msg.from, msg.to, {
+          db: msg.db,
+          files: msg.files,
+          cc: msg.cc
+        });
+        vscode.window.showInformationMessage(
+          `Synced ${what} from ${msg.from} to ${msg.site}.${msg.to}.`
+        );
+        return { type: 'contentSynced' };
       }
       case 'clearCache': {
         const choice = await vscode.window.showWarningMessage(
@@ -194,8 +223,9 @@ class DashboardViewProvider {
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; font-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="${asset('codicons/codicon.css')}">
 <link rel="stylesheet" href="${asset('main.css')}">
 <title>Pantheon</title>
 </head>

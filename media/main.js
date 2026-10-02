@@ -36,8 +36,12 @@
     devMode: null,
     devEnv: 'dev',
     envsSite: null,
-    unpushedCount: 0
+    multidevs: [],
+    unpushedCount: 0,
+    unpushedSig: null
   };
+  // Cards that offer content sync (live is never a sync target).
+  const SYNC_KEYS = ['dev', 'test'];
   const pendingCounts = { test: 0, live: 0 };
 
   const esc = (text) => {
@@ -59,7 +63,7 @@
     byId(`card-${key}`).classList.toggle('busy', busy);
     document
       .querySelectorAll(
-        `#card-${key} button, #card-${key} textarea, #card-${key} select`
+        `#card-${key} button, #card-${key} textarea, #card-${key} select, #card-${key} input`
       )
       .forEach((elm) => {
         elm.disabled = busy;
@@ -75,6 +79,11 @@
     for (const env of ['test', 'live']) {
       byId(`${env}-deploy`).disabled =
         !byId(`${env}-note`).value.trim() || !pendingCounts[env];
+    }
+    for (const key of SYNC_KEYS) {
+      byId(`${key}-sync-go`).disabled =
+        byId(`card-${key}`).classList.contains('busy') ||
+        (!byId(`${key}-sync-db`).checked && !byId(`${key}-sync-files`).checked);
     }
   };
 
@@ -135,8 +144,9 @@
   const renderUnpushed = (branch, commits) => {
     const label = state.devEnv === 'dev' ? 'Dev' : state.devEnv;
     state.unpushedCount = commits.length;
+    state.unpushedSig = commits.map((c) => c.hash).join();
     const status = commits.length
-      ? `<p class="empty">${commits.length} local commit(s) on ${esc(branch)} not pushed to origin/${esc(branch)}.</p>`
+      ? `<p class="empty">${commits.length} unpushed local commit(s)</p>`
       : `<div class="statusblock">Status: Local ${esc(branch)} matches origin/${esc(branch)}.</div>`;
     const list = commits.length
       ? `<div class="${listClass(commits)}">${commitList(commits)}</div>`
@@ -160,13 +170,37 @@
   };
 
   const skeleton = () => {
-    const cacheButton = (key) =>
-      `<button class="icon icon-sm" data-clear="${key}" title="Clear Caches" aria-label="Clear Caches">🧹</button>`;
+    const iconButton = (attr, icon, title) =>
+      `<button class="icon icon-sm" ${attr} title="${title}" aria-label="${title}"><span class="codicon codicon-${icon}"></span></button>`;
+    const actions = (key) =>
+      (SYNC_KEYS.includes(key)
+        ? iconButton(`data-sync="${key}"`, 'sync', 'Sync Content')
+        : '') + iconButton(`data-clear="${key}"`, 'clear-all', 'Clear Caches');
+    // Slide-down content sync form; options are filled on open.
+    const syncPanel = (key) =>
+      SYNC_KEYS.includes(key)
+        ? `
+      <div class="slide" id="${key}-syncpanel" inert>
+        <div>
+          <div class="syncpanel">
+            <label>Sync from <select id="${key}-sync-from"></select></label>
+            <label><input type="checkbox" id="${key}-sync-db"> Database</label>
+            <label><input type="checkbox" id="${key}-sync-files"> Files</label>
+            <label><input type="checkbox" id="${key}-sync-cc"> Clear caches afterwards</label>
+            <div class="row">
+              <button id="${key}-sync-go" disabled>Sync</button>
+              <button class="secondary" id="${key}-sync-cancel">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>`
+        : '';
     const deployCard = (env, label) => `
       <section class="card" id="card-${env}">
         <h2>${env}
-          <span class="h2-actions"><span class="badge" id="${env}-badge"></span>${cacheButton(env)}</span>
+          <span class="h2-actions"><span class="badge" id="${env}-badge"></span>${actions(env)}</span>
         </h2>
+        ${syncPanel(env)}
         <div class="status" id="${env}-status"></div>
         <div class="commitbox">
           <textarea id="${env}-note" rows="2" placeholder="Deploy note"></textarea>
@@ -184,15 +218,16 @@
     app.innerHTML = `
       <header>
         <select id="site-select" title="Site">${siteOptions}</select>
-        <button id="refresh" class="icon" title="Refresh" aria-label="Refresh">⟳</button>
+        <button id="refresh" class="icon" title="Refresh" aria-label="Refresh"><span class="codicon codicon-refresh"></span></button>
         <span class="who">${esc(state.email)}</span>
       </header>
       <main>
         <section class="card" id="card-dev">
           <h2>
             <select id="dev-env"><option value="dev" selected>dev</option></select>
-            <span class="h2-actions"><span class="badge" id="dev-badge"></span>${cacheButton('dev')}</span>
+            <span class="h2-actions"><span class="badge" id="dev-badge"></span>${actions('dev')}</span>
           </h2>
+          ${syncPanel('dev')}
           <div class="toggle" id="dev-toggle">
             <button data-mode="sftp">SFTP</button>
             <button data-mode="git">Git</button>
@@ -216,8 +251,20 @@
     document.querySelectorAll('[data-clear]').forEach((btn) => {
       btn.addEventListener('click', () => clearCache(btn.dataset.clear));
     });
+    document.querySelectorAll('[data-sync]').forEach((btn) => {
+      btn.addEventListener('click', () => toggleSync(btn.dataset.sync));
+    });
+    for (const key of SYNC_KEYS) {
+      byId(`${key}-sync-db`).addEventListener('change', syncButtons);
+      byId(`${key}-sync-files`).addEventListener('change', syncButtons);
+      byId(`${key}-sync-go`).addEventListener('click', () => syncContent(key));
+      byId(`${key}-sync-cancel`).addEventListener('click', () =>
+        toggleSync(key, false)
+      );
+    }
     byId('dev-env').addEventListener('change', (event) => {
       state.devEnv = event.target.value;
+      toggleSync('dev', false);
       refreshDev();
     });
     byId('dev-toggle').addEventListener('click', (event) => {
@@ -283,6 +330,7 @@
     try {
       const { envs } = await request({ type: 'multidevs', site: state.site });
       state.envsSite = state.site;
+      state.multidevs = envs;
       state.devEnv = 'dev';
       select.innerHTML = ['dev', ...envs]
         .map(
@@ -375,6 +423,100 @@
     }
     setBusy(key, false);
     syncButtons();
+  };
+
+  // Sync target: the dev card syncs into the selected dev/multidev env.
+  const syncTarget = (key) => (key === 'dev' ? state.devEnv : key);
+
+  // Open fills "Sync from" with every env except the target; close resets
+  // the checkboxes to their unchecked defaults.
+  const toggleSync = (key, open) => {
+    const panel = byId(`${key}-syncpanel`);
+    const show = open === undefined ? !panel.classList.contains('open') : open;
+    if (show) {
+      const target = syncTarget(key);
+      byId(`${key}-sync-from`).innerHTML = [
+        'dev',
+        'test',
+        'live',
+        ...state.multidevs
+      ]
+        .filter((e) => e !== target)
+        .map((e) => `<option value="${esc(e)}">${esc(e)}</option>`)
+        .join('');
+    } else {
+      for (const part of ['db', 'files', 'cc']) {
+        byId(`${key}-sync-${part}`).checked = false;
+      }
+    }
+    panel.classList.toggle('open', show);
+    panel.inert = !show;
+    syncButtons();
+  };
+
+  const syncContent = async (key) => {
+    const to = syncTarget(key);
+    const from = byId(`${key}-sync-from`).value;
+    setBusy(key, true);
+    setStatus(
+      key,
+      spin(`Syncing ${from} → ${to} — waiting for Pantheon workflows…`)
+    );
+    try {
+      const res = await request({
+        type: 'syncContent',
+        site: state.site,
+        from,
+        to,
+        db: byId(`${key}-sync-db`).checked,
+        files: byId(`${key}-sync-files`).checked,
+        cc: byId(`${key}-sync-cc`).checked
+      });
+      if (res.type === 'contentSynced') {
+        toggleSync(key, false);
+        setStatus(
+          key,
+          `<div class="statusblock">Synced ${esc(from)} → ${esc(to)}.</div>`
+        );
+      } else {
+        setStatus(key, '');
+      }
+    } catch (err) {
+      setStatus(key, fail(err));
+    }
+    setBusy(key, false);
+    syncButtons();
+  };
+
+  // Background check of the local repo (no fetch) while the dev card is in
+  // Git mode, so commits made outside the dashboard show up without Refresh.
+  const LOCAL_POLL_MS = 5000;
+  let polling = false;
+  const devIdle = () =>
+    state.devMode === 'git' && !byId('card-dev').classList.contains('busy');
+  const pollUnpushed = async () => {
+    if (polling || document.hidden || !devIdle()) {
+      return;
+    }
+    polling = true;
+    const env = state.devEnv;
+    try {
+      const { branch, commits } = await request({
+        type: 'unpushed',
+        env,
+        fetch: false
+      });
+      const sig = commits.map((c) => c.hash).join();
+      if (env === state.devEnv && devIdle() && sig !== state.unpushedSig) {
+        renderUnpushed(branch, commits);
+        syncButtons();
+      }
+    } catch (err) {
+      if (devIdle()) {
+        setStatus('dev', fail(err));
+      }
+    }
+    polling = false;
   };
 
   // After a card's workflow settles (spinner cleared), reload the commit lists
@@ -488,6 +630,7 @@
       state.email = res.email;
       skeleton();
       refreshAll();
+      setInterval(pollUnpushed, LOCAL_POLL_MS);
     } catch (err) {
       app.innerHTML = `<div class="center">${fail(err)}</div>`;
     }

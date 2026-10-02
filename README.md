@@ -79,6 +79,20 @@ git -C ~/.vscode/extensions/earthmanweb.pantheon-dashboard pull
 - **Workflow-aware spinners** — after every mutating operation the extension
   polls `terminus workflow:list` until all workflows started by the operation
   reach a terminal status; the UI only updates when Pantheon is actually done.
+- **Sync content** — a sync icon next to Clear Caches on the Dev and Test
+  cards opens a slide-down panel: pick any other environment (including
+  multidevs) as the source, then tick **Database** and/or **Files** (both
+  unchecked by default; Sync stays disabled until at least one is ticked) and
+  optionally **Clear caches afterwards** (unchecked by default). A confirm
+  dialog precedes the run; the spinner waits for the Pantheon clone workflows
+  on the target environment (up to 60 minutes). Runs
+  `terminus env:clone-content`.
+- **Unpushed local commits** — the Dev card (Git mode) checks the local repo
+  every 5 seconds without fetching, so new local commits show up
+  automatically as "N unpushed local commit(s)". **Refresh** still fetches
+  origin for the up-to-date comparison.
+- **Icons** — [Codicons](https://github.com/microsoft/vscode-codicons),
+  VS Code's icon font, vendored in `media/codicons` (CC-BY-4.0 / MIT).
 
 ## Requirements
 

@@ -9,6 +9,8 @@ const TERMINAL_STATUSES = new Set(['succeeded', 'failed', 'aborted']);
 const BACKGROUND_WORKFLOWS = /Update the Package Index Service|Automated backup/;
 const POLL_MS = 4000;
 const WAIT_TIMEOUT_MS = 10 * 60 * 1000;
+// Database clones of large sites run well past 10 minutes.
+const CLONE_TIMEOUT_MS = 60 * 60 * 1000;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -104,8 +106,12 @@ class PantheonApi {
 
   // Local commits on `branch` not pushed to origin/<branch>. Pantheon's dev
   // env tracks master; a multidev tracks the branch of the same name.
-  async unpushedCommits(branch) {
-    await this.git(['fetch', 'origin', branch]);
+  // fetch: false compares against the last-fetched origin ref only (cheap,
+  // offline — used by the webview's background poll).
+  async unpushedCommits(branch, { fetch = true } = {}) {
+    if (fetch) {
+      await this.git(['fetch', 'origin', branch]);
+    }
     const out = await this.git([
       'log',
       `origin/${branch}..${branch}`,
@@ -145,6 +151,28 @@ class PantheonApi {
     await this.waitForEnv(site, env, since);
   }
 
+  // Copy database and/or files from `from` into `to`. Pantheon logs the
+  // "Clone database/files to <to>" workflows (and the --cc cache clear) on the
+  // target env, so that is the queue to wait on.
+  async cloneContent(site, from, to, { db, files, cc }) {
+    const args = ['env:clone-content', `${site}.${from}`, to, '--yes'];
+    if (!db && !files) {
+      throw new Error('Select database and/or files to sync.');
+    }
+    if (!files) {
+      args.push('--db-only');
+    }
+    if (!db) {
+      args.push('--files-only');
+    }
+    if (cc) {
+      args.push('--cc');
+    }
+    const since = Date.now() / 1000;
+    await this.terminus(args);
+    await this.waitForEnv(site, to, since, CLONE_TIMEOUT_MS);
+  }
+
   // Push the local branch to origin (Pantheon), which deploys it to the env,
   // then wait for the env's "Sync code" workflows to finish.
   async push(site, env, branch) {
@@ -155,8 +183,8 @@ class PantheonApi {
 
   // Poll workflow:list until every workflow on `env` started at/after
   // `sinceEpoch` is terminal. Throws on a failed workflow or timeout.
-  async waitForEnv(site, env, sinceEpoch) {
-    const deadline = Date.now() + this.waitTimeoutMs;
+  async waitForEnv(site, env, sinceEpoch, timeoutMs = this.waitTimeoutMs) {
+    const deadline = Date.now() + timeoutMs;
     for (;;) {
       const flows = Object.values(
         await this.terminusJson(['workflow:list', site])

@@ -201,6 +201,118 @@ test('waitForEnv ignores Pantheon background housekeeping workflows', async () =
   await api.waitForEnv('site', 'live', now - 10);
 });
 
+test('cloneContent db only: clones with --db-only then waits on the target env', async () => {
+  const calls = [];
+  const api = new PantheonApi('/tmp', {
+    pollMs: 1,
+    waitTimeoutMs: 50,
+    run: async (bin, args) => {
+      calls.push(args.join(' '));
+      if (args[0] === 'workflow:list') {
+        return JSON.stringify({
+          live: {
+            env: 'live',
+            workflow: 'Clone database to "live"',
+            status: 'running',
+            started_at: Date.now() / 1000
+          }
+        });
+      }
+      return '';
+    }
+  });
+  await api.cloneContent('site', 'live', 'test', { db: true, files: false });
+  assert.deepEqual(calls[0].split(' '), [
+    'env:clone-content',
+    'site.live',
+    'test',
+    '--yes',
+    '--db-only'
+  ]);
+});
+
+test('cloneContent db+files+cc: no --db-only/--files-only, includes --cc', async () => {
+  const calls = [];
+  const api = new PantheonApi('/tmp', {
+    pollMs: 1,
+    run: async (bin, args) => {
+      calls.push(args.join(' '));
+      return args[0] === 'workflow:list' ? '{}' : '';
+    }
+  });
+  await api.cloneContent('site', 'dev', 'test', {
+    db: true,
+    files: true,
+    cc: true
+  });
+  assert.deepEqual(calls[0].split(' '), [
+    'env:clone-content',
+    'site.dev',
+    'test',
+    '--yes',
+    '--cc'
+  ]);
+});
+
+test('cloneContent files only: includes --files-only, not --db-only', async () => {
+  const calls = [];
+  const api = new PantheonApi('/tmp', {
+    pollMs: 1,
+    run: async (bin, args) => {
+      calls.push(args.join(' '));
+      return args[0] === 'workflow:list' ? '{}' : '';
+    }
+  });
+  await api.cloneContent('site', 'dev', 'test', { db: false, files: true });
+  assert.deepEqual(calls[0].split(' '), [
+    'env:clone-content',
+    'site.dev',
+    'test',
+    '--yes',
+    '--files-only'
+  ]);
+});
+
+test('cloneContent with neither db nor files rejects and runs no commands', async () => {
+  const calls = [];
+  const api = new PantheonApi('/tmp', {
+    pollMs: 1,
+    run: async (bin, args) => {
+      calls.push(args.join(' '));
+      return '{}';
+    }
+  });
+  await assert.rejects(
+    () => api.cloneContent('site', 'dev', 'test', { db: false, files: false }),
+    /database and\/or files/
+  );
+  assert.deepEqual(calls, []);
+});
+
+test('unpushedCommits with fetch: false skips git fetch and only logs', async () => {
+  const calls = [];
+  const api = new PantheonApi('/tmp', {
+    run: async (bin, args) => {
+      calls.push([bin, args[0]]);
+      return '';
+    }
+  });
+  await api.unpushedCommits('master', { fetch: false });
+  assert.deepEqual(calls, [['git', 'log']]);
+});
+
+test('waitForEnv honors an explicit timeoutMs argument', async () => {
+  const api = new PantheonApi('/tmp', {
+    pollMs: 1,
+    waitTimeoutMs: 10 * 60 * 1000,
+    run: async () => flows('running')
+  });
+  await assert.rejects(
+    () => api.waitForEnv('site', 'dev', Date.now() / 1000 - 10, 20),
+    /Timed out/
+  );
+});
+
 test('commit sends the message then waits for workflows', async () => {
   const calls = [];
   const api = new PantheonApi('/tmp', {
