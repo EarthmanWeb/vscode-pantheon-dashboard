@@ -377,6 +377,17 @@
     syncButtons();
   };
 
+  // After a card's workflow settles (spinner cleared), reload the commit lists
+  // of every env downstream of it — on failure too, since Pantheon may have
+  // applied part of the change. dev → test → live; a multidev feeds nothing.
+  const DOWNSTREAM = { dev: ['test', 'live'], test: ['live'], live: [] };
+  const refreshDownstream = (key) => {
+    if (key === 'dev' && state.devEnv !== 'dev') {
+      return;
+    }
+    DOWNSTREAM[key].forEach(refreshPending);
+  };
+
   // Git mode: push local commits to origin, deploying them to the env.
   const syncDev = async (branch, count) => {
     const env = state.devEnv;
@@ -393,16 +404,20 @@
         branch,
         count
       });
-      if (res.type !== 'pushCancelled') {
-        renderUnpushed(res.branch, res.commits);
-        refreshPending('test');
+      if (res.type === 'pushCancelled') {
+        setStatus('dev', '');
+        setBusy('dev', false);
+        syncButtons();
+        return;
       }
+      renderUnpushed(res.branch, res.commits);
       setStatus('dev', '');
     } catch (err) {
       setStatus('dev', fail(err));
     }
     setBusy('dev', false);
     syncButtons();
+    refreshDownstream('dev');
   };
 
   const commitDev = async () => {
@@ -423,12 +438,12 @@
       byId('dev-message').value = '';
       renderDiffstat(files);
       setStatus('dev', '');
-      refreshPending('test');
     } catch (err) {
       setStatus('dev', fail(err));
     }
     setBusy('dev', false);
     syncButtons();
+    refreshDownstream('dev');
   };
 
   const deployEnv = async (env) => {
@@ -443,19 +458,21 @@
         note,
         count: pendingCounts[env]
       });
-      if (res.type !== 'deployCancelled') {
-        byId(`${env}-note`).value = '';
-        renderPending(env, res.commits);
-        if (env === 'test') {
-          refreshPending('live');
-        }
+      if (res.type === 'deployCancelled') {
+        setStatus(env, '');
+        setBusy(env, false);
+        syncButtons();
+        return;
       }
+      byId(`${env}-note`).value = '';
+      renderPending(env, res.commits);
       setStatus(env, '');
     } catch (err) {
       setStatus(env, fail(err));
     }
     setBusy(env, false);
     syncButtons();
+    refreshDownstream(env);
   };
 
   // ── Boot ──
