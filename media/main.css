@@ -127,6 +127,11 @@ textarea {
   gap: 6px;
 }
 
+/* author display:flex beats the UA [hidden] rule — restore it */
+.commitbox[hidden] {
+  display: none;
+}
+
 .scroll {
   max-height: 240px;
   overflow-y: auto;
