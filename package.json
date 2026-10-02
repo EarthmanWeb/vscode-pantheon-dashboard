@@ -1,0 +1,45 @@
+{
+  "name": "pantheon-dashboard",
+  "displayName": "Pantheon Dashboard",
+  "description": "Mini dashboard for Pantheon Terminus: connection mode, SFTP commits, pending commits and deploys.",
+  "version": "0.1.0",
+  "publisher": "earthmanweb",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./extension.js",
+  "scripts": {
+    "test": "node --test"
+  },
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "pantheonDashboard.open",
+        "title": "Open Pantheon Dashboard",
+        "category": "Pantheon"
+      }
+    ],
+    "configuration": {
+      "title": "Pantheon Dashboard",
+      "properties": {
+        "pantheonDashboard.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable the dashboard in this workspace. Set true in the workspace's .vscode/settings.json; the extension stays dormant elsewhere."
+        },
+        "pantheonDashboard.site": {
+          "type": "string",
+          "default": "",
+          "description": "Pantheon site machine name (e.g. my-site). Empty = match the workspace folder name against `terminus site:list`."
+        }
+      }
+    }
+  }
+}
