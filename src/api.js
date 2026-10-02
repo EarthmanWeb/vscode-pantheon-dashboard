@@ -2,6 +2,11 @@ const { run } = require('./shell');
 
 // Workflow statuses Pantheon reports as finished.
 const TERMINAL_STATUSES = new Set(['succeeded', 'failed', 'aborted']);
+
+// Pantheon housekeeping that runs on its own schedule (e.g. the package index
+// refresh auto-queued after every live deploy, ~4-5 min). Never caused by a
+// dashboard operation, so never waited on.
+const BACKGROUND_WORKFLOWS = /Update the Package Index Service|Automated backup/;
 const POLL_MS = 4000;
 const WAIT_TIMEOUT_MS = 10 * 60 * 1000;
 
@@ -149,7 +154,12 @@ class PantheonApi {
     for (;;) {
       const flows = Object.values(
         await this.terminusJson(['workflow:list', site])
-      ).filter((w) => w.env === env && w.started_at >= sinceEpoch - 120);
+      ).filter(
+        (w) =>
+          w.env === env &&
+          w.started_at >= sinceEpoch - 120 &&
+          !BACKGROUND_WORKFLOWS.test(w.workflow)
+      );
       const active = flows.filter((w) => !TERMINAL_STATUSES.has(w.status));
       if (!active.length) {
         const failed = flows.find((w) => w.status === 'failed');

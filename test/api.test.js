@@ -177,6 +177,30 @@ test('waitForEnv ignores workflows from before the operation', async () => {
   await api.waitForEnv('site', 'dev', Date.now() / 1000);
 });
 
+test('waitForEnv ignores Pantheon background housekeeping workflows', async () => {
+  const now = Date.now() / 1000;
+  const api = new PantheonApi('/tmp', {
+    pollMs: 1,
+    waitTimeoutMs: 50,
+    run: async () =>
+      JSON.stringify({
+        deploy: {
+          env: 'live',
+          workflow: 'Deploy code to "live"',
+          status: 'succeeded',
+          started_at: now
+        },
+        index: {
+          env: 'live',
+          workflow: "Update the Package Index Service on 'live'",
+          status: 'running',
+          started_at: now
+        }
+      })
+  });
+  await api.waitForEnv('site', 'live', now - 10);
+});
+
 test('commit sends the message then waits for workflows', async () => {
   const calls = [];
   const api = new PantheonApi('/tmp', {
