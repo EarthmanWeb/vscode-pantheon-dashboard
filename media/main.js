@@ -124,12 +124,19 @@
   };
 
   const renderUnpushed = (branch, commits) => {
-    const list = commits.length
-      ? `<div class="scroll commits">${commitList(commits)}</div>`
-      : `<p class="empty">Local ${esc(branch)} matches origin/${esc(branch)}.</p>`;
+    const env = state.devEnv;
+    if (!commits.length) {
+      byId('dev-body').innerHTML = `<p class="empty">Local ${esc(branch)} matches origin/${esc(branch)} — nothing to sync.</p>`;
+      return;
+    }
+    const label = env === 'dev' ? 'Dev' : env;
     byId('dev-body').innerHTML = `
-      <p class="empty">${commits.length} local commit(s) on ${esc(branch)} not pushed to origin/${esc(branch)}. Commit and push via git — Terminus commits apply to SFTP mode only.</p>
-      ${list}`;
+      <p class="empty">${commits.length} local commit(s) on ${esc(branch)} not pushed to origin/${esc(branch)}.</p>
+      <div class="scroll commits">${commitList(commits)}</div>
+      <button id="dev-sync">Sync to ${esc(label)}</button>`;
+    byId('dev-sync').addEventListener('click', () =>
+      syncDev(branch, commits.length)
+    );
   };
 
   const renderPending = (env, commits) => {
@@ -331,6 +338,34 @@
       setBusy('dev', false);
       syncButtons();
     }
+  };
+
+  // Git mode: push local commits to origin, deploying them to the env.
+  const syncDev = async (branch, count) => {
+    const env = state.devEnv;
+    setBusy('dev', true);
+    setStatus(
+      'dev',
+      spin(`Pushing to origin/${branch} — waiting for Pantheon sync…`)
+    );
+    try {
+      const res = await request({
+        type: 'push',
+        site: state.site,
+        env,
+        branch,
+        count
+      });
+      if (res.type !== 'pushCancelled') {
+        renderUnpushed(res.branch, res.commits);
+        refreshPending('test');
+      }
+      setStatus('dev', '');
+    } catch (err) {
+      setStatus('dev', fail(err));
+    }
+    setBusy('dev', false);
+    syncButtons();
   };
 
   const commitDev = async () => {

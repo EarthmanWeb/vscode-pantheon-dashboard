@@ -204,6 +204,20 @@ test('deploy passes the note then waits for workflows', async () => {
   assert.ok(calls[0].startsWith('env:deploy site.test --note=Release note'));
 });
 
+test('push sends the branch to origin then waits for the env sync', async () => {
+  const calls = [];
+  const api = new PantheonApi('/tmp', {
+    pollMs: 1,
+    run: async (bin, args) => {
+      calls.push([bin, ...args.slice(0, 3)]);
+      return args[0] === 'workflow:list' ? '{}' : '';
+    }
+  });
+  await api.push('site', 'dev', 'master');
+  assert.deepEqual(calls[0], ['git', 'push', 'origin', 'master']);
+  assert.equal(calls[1][1], 'workflow:list');
+});
+
 test('setMode switches, waits, then reports the fresh mode', async () => {
   const calls = [];
   const api = new PantheonApi('/tmp', {

@@ -134,6 +134,14 @@ class PantheonApi {
     await this.waitForEnv(site, env, since);
   }
 
+  // Push the local branch to origin (Pantheon), which deploys it to the env,
+  // then wait for the env's "Sync code" workflows to finish.
+  async push(site, env, branch) {
+    const since = Date.now() / 1000;
+    await this.git(['push', 'origin', branch]);
+    await this.waitForEnv(site, env, since);
+  }
+
   // Poll workflow:list until every workflow on `env` started at/after
   // `sinceEpoch` is terminal. Throws on a failed workflow or timeout.
   async waitForEnv(site, env, sinceEpoch) {

@@ -111,6 +111,22 @@ class DashboardViewProvider {
           commits: await this.api.unpushedCommits(branch)
         };
       }
+      case 'push': {
+        const choice = await vscode.window.showWarningMessage(
+          `Push ${msg.count} commit(s) to origin/${msg.branch}? This deploys to ${msg.site}.${msg.env}.`,
+          { modal: true },
+          'Push'
+        );
+        if (choice !== 'Push') {
+          return { type: 'pushCancelled' };
+        }
+        await this.api.push(msg.site, msg.env, msg.branch);
+        return {
+          type: 'unpushed',
+          branch: msg.branch,
+          commits: await this.api.unpushedCommits(msg.branch)
+        };
+      }
       case 'pending':
         return {
           type: 'pending',
