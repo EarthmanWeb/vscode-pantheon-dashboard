@@ -11,47 +11,57 @@ metadata:
 
 # FEATURE_DEV_STANDARDS - Development Standards Index
 
-## Project: serena-workflow-engine
+## Project: vscode-pantheon-dashboard
 
-**Primary Language:** python
+**Primary Language:** JavaScript (plain, no build step, no TypeScript)
 
 ## Standards by Language
 
-<!-- Add DEV_* memories for each language used in the project -->
-
-| Language | Memory       | Status       |
-| -------- | ------------ | ------------ |
-| python   | `DEV_PYTHON` | TODO: Create |
+| Language   | Memory | Status                                   |
+| ---------- | ------ | ----------------------------------------- |
+| JavaScript | —      | Covered inline below; no separate DEV_* memory needed |
 
 ## General Standards
 
 ### Code Style
 
-- Follow existing project conventions (check existing files first)
-- Use the project's configured linter/formatter if available
-- Consistent naming: match the casing convention already in use
+- Prettier: 2 spaces, single quotes, semicolons, no trailing commas
+- No build step — plain JavaScript only, no TypeScript, no bundler
+- Match existing file's naming/casing convention
 
 ### File Organization
 
-- New files follow existing directory structure patterns
-- Group related functionality together
-- Keep files focused on a single responsibility
+| File           | Role                                                                 |
+| -------------- | --------------------------------------------------------------------- |
+| `extension.js` | Activation (auto-detects `pantheon.yml`/`pantheon.upstream.yml`), status bar |
+| `src/shell.js` | Login-shell `execFile` runner — arg arrays only, never string interpolation |
+| `src/api.js`   | `PantheonApi`: all terminus/git calls; every mutation polls `workflow:list` until workflows started since the operation are terminal |
+| `src/panel.js` | Webview panel, message router, native confirm dialogs                |
+| `media/main.js`| Webview UI: request/response bridge keyed by `requestId`; spinners settle only when the host resolves |
+| `media/main.css` | VS Code theme variables only — no hardcoded colors                  |
+
+- New Terminus calls go in `src/api.js`; VS Code API stays in `src/panel.js` / `extension.js`; the webview never runs commands.
 
 ### Error Handling
 
-- Fail fast with clear error messages
+- Fail fast: command stderr surfaces in the card UI; no fallbacks that mask failures
 - No silent failures or empty catch blocks
-- Log errors at appropriate severity levels
+
+### Security (PUBLIC REPO)
+
+- No stored secrets, tokens, `.env` files, or site-specific identifiers (site names, orgs, ticket prefixes) in code, docs, memories, or git history
+- Auth lives in the user's `~/.terminus` session only
 
 ### Testing
 
 - See `FEATURE_TESTS` for test runner and patterns
 - New functional code should have corresponding tests
-- Follow existing test patterns in the project
+- Follow existing test patterns in `tests/`
 
-## Per-Project Customization
+### Versioning
 
-1. **Create `DEV_*` memories** for each language (e.g., `DEV_PHP`, `DEV_PYTHON`)
-2. **Add project-specific standards** (naming conventions, file headers, etc.)
-3. **Document CI/CD requirements** (lint checks, coverage thresholds)
-4. **Remove this section** after customization
+- Patch: `.githooks/pre-commit` bumps `package.json` patch version on every commit. NEVER bump the patch by hand. Installed by `npm install` / `npm test` (`prepare` script sets `core.hooksPath .githooks`).
+- Major: bump manually (`npm version major --no-git-tag-version`) when a change may break existing behavior.
+- Minor: bump manually (`npm version minor --no-git-tag-version`) when work reaches a suitable milestone.
+- Hook skips the commit when the staged version already differs from HEAD (manual bump) and on `git commit --amend`.
+- Commit prefix: `<type>: <change>` — no version suffix, never "Bump version to …" subjects (see `FEEDBACK_COMMIT_PREFIXES`)

@@ -13,11 +13,22 @@ The write_memory hook warns when these are violated; trim on the warning.
 
 - [Response Format](feedback/FEEDBACK_RESPONSE_FORMAT.md) — no conversational language, use functional/direct phrasing only
 - [Read docs = list memories](feedback/FEEDBACK_READ_DOCS_MEANS_LIST.md) — "read the docs" means check MEMORY.md and use Serena to list_memories, not external docs
-- [Commit prefixes](feedback/FEEDBACK_COMMIT_PREFIXES.md) — `<type>: <change> (vX.Y.Z)`; never "Bump version to …" subjects
+- [Commit prefixes](feedback/FEEDBACK_COMMIT_PREFIXES.md) — `<type>: <change>` (no version suffix; patch auto-bumped by pre-commit hook); never "Bump version to …" subjects
 
 ## Features
 
 - [Feature Index](index/INDEX_FEATURES.md) — Feature registry with relationships and types
+- [Pantheon Dashboard](feature/FEATURE_DASHBOARD.md) — activation, message protocol, PantheonApi, shell runner, key files
+- [Workflow polling](dom/DOM_DASHBOARD_WORKFLOW_POLLING.md) — waitForEnv contract, downstream refresh after workflows settle
+- [Connection mode](dom/DOM_DASHBOARD_CONNECTION_MODE.md) — SFTP/Git toggle flow
+- [Commits](dom/DOM_DASHBOARD_COMMITS.md) — SFTP diffstat/commit, unpushed, push, pending commits
+- [Deploys](dom/DOM_DASHBOARD_DEPLOYS.md) — deploy to test/live
+- [Clear caches](dom/DOM_DASHBOARD_CLEAR_CACHE.md) — per-env cache clear
+- [Content sync](dom/DOM_DASHBOARD_CONTENT_SYNC.md) — database/files clone between environments
+
+## Reference
+
+- [Memory Maintenance](ref/REF_MEMORY_MAINTENANCE.md) — how memories are created & maintained (discovery model, style, add/update threshold, maintenance actions)
 
 ## Architecture
 

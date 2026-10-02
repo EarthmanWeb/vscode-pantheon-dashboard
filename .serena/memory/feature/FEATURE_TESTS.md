@@ -9,7 +9,7 @@ metadata:
   type: feature
 ---
 
-# FEATURE_TESTS - Test Suite (Template)
+# FEATURE_TESTS - Test Suite
 
 ## Feature Overview
 
@@ -18,16 +18,16 @@ metadata:
 | **Name**      | Test Suite     |
 | **Key**       | TESTS          |
 | **Type**      | infrastructure |
-| **Language**  | python         |
-| **Framework** | unknown        |
+| **Language**  | JavaScript     |
+| **Framework** | node:test (built-in, stubbed runner — no Terminus needed) |
 
 ## Running Tests
 
 **ALWAYS use project scripts. All commands run from the project root.**
 
 ```bash
-# TODO: Customize these per project
-# TODO: Add test commands
+npm test          # node:test unit tests, stubbed runner — no Terminus needed
+node --check …    # syntax check for a single file
 ```
 
 ### Test Gate
@@ -43,18 +43,6 @@ commands until this memory has been read in the current session.
 4. When FEATURE_TESTS is read, `swe_post_read_state.py` calls
    `create_feature_sentinel(session_id, 'test')` which creates the sentinel
 5. Subsequent test commands pass instantly (file existence check)
-
-## Per-Project Customization
-
-When adapting this template for a project:
-
-1. **Replace remaining placeholders** with actual values
-2. **Add test scripts table** -- list all test scripts from your package manager
-3. **Add fixtures section** -- document available fixtures and their APIs
-4. **Add test categories** -- list spec files with descriptions
-5. **Add config details** -- document runner config (timeouts, workers, etc.)
-6. **Add auth setup** -- document how authentication storage state works (if applicable)
-7. **Remove this section** after customization
 
 ## Gherkin BDD Specs
 
@@ -84,20 +72,20 @@ Gherkin `.feature` files define testable behavioral specifications using Given/W
 
 ### Primary Directories
 
-| Directory      | Purpose                         |
-| -------------- | ------------------------------- |
-| `tests/`       | Root of the test suite          |
-| `tests/specs/` | Gherkin BDD specification files |
+| Directory      | Purpose                                          |
+| -------------- | ------------------------------------------------- |
+| `tests/`        | Root of the test suite (node:test, `*.test.js`)   |
+| `tests/specs/` | Gherkin BDD specification files                   |
 
 ## Test Runner Config
 
-| Setting       | Value     |
-| ------------- | --------- |
-| **Framework** | `unknown` |
-| **Root**      | `tests/`  |
+| Setting       | Value                                 |
+| ------------- | -------------------------------------- |
+| **Framework** | `node:test` (built-in `node --test`)  |
+| **Root**      | `tests/`                                |
 
 ## Test Suites
 
-| Suite                   | File | Focus |
-| ----------------------- | ---- | ----- |
-| _TODO: Add test suites_ |      |       |
+| Suite            | File                | Focus                                                                                              |
+| ---------------- | ------------------- | ---------------------------------------------------------------------------------------------------- |
+| API / site match | `tests/api.test.js` | `PantheonApi` logic, e.g. `matchSite` folder-name/site matching — stubbed, no live Terminus calls |
