@@ -2,7 +2,7 @@
   "name": "pantheon-dashboard",
   "displayName": "Pantheon Dashboard",
   "description": "Mini dashboard for Pantheon Terminus: connection mode, SFTP commits, pending commits and deploys.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "earthmanweb",
   "license": "MIT",
   "engines": {
@@ -16,7 +16,8 @@
     "test": "node --test"
   },
   "activationEvents": [
-    "onStartupFinished"
+    "workspaceContains:pantheon.yml",
+    "workspaceContains:pantheon.upstream.yml"
   ],
   "contributes": {
     "commands": [
@@ -48,11 +49,6 @@
     "configuration": {
       "title": "Pantheon Dashboard",
       "properties": {
-        "pantheonDashboard.enabled": {
-          "type": "boolean",
-          "default": false,
-          "description": "Enable the dashboard in this workspace. Set true in the workspace's .vscode/settings.json; the extension stays dormant elsewhere."
-        },
         "pantheonDashboard.site": {
           "type": "string",
           "default": "",

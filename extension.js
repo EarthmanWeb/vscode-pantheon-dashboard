@@ -1,17 +1,24 @@
+const fs = require('fs');
+const path = require('path');
 const vscode = require('vscode');
 const { DashboardViewProvider } = require('./src/panel');
 
+// Zero-config gating: the extension only comes alive in a Pantheon repo — a
+// workspace folder with pantheon.yml (or pantheon.upstream.yml) at its root.
+// activationEvents (workspaceContains) keep it unloaded everywhere else.
+const isPantheonWorkspace = () =>
+  (vscode.workspace.workspaceFolders || []).some((folder) =>
+    ['pantheon.yml', 'pantheon.upstream.yml'].some((name) =>
+      fs.existsSync(path.join(folder.uri.fsPath, name))
+    )
+  );
+
 const activate = (context) => {
-  // Per-workspace opt-in: "pantheonDashboard.enabled": true in the workspace's
-  // settings (.code-workspace "settings" block, or .vscode/settings.json for a
-  // plain folder window). The when-clause context hides the view elsewhere.
-  const enabled = vscode.workspace
-    .getConfiguration('pantheonDashboard')
-    .get('enabled');
+  const enabled = isPantheonWorkspace();
   vscode.commands.executeCommand(
     'setContext',
     'pantheonDashboard.enabled',
-    !!enabled
+    enabled
   );
   if (!enabled) {
     return;

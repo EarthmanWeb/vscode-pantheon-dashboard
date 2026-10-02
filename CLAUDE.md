@@ -7,7 +7,7 @@ commits, deploys). Plain JavaScript, no build step.
 
 | File | Role |
 | ---- | ---- |
-| `extension.js` | Activation (gated by `pantheonDashboard.enabled`), status bar |
+| `extension.js` | Activation (auto-detects `pantheon.yml` at a workspace folder root), status bar |
 | `src/shell.js` | Login-shell `execFile` runner — arg arrays only, never string interpolation |
 | `src/api.js` | `PantheonApi`: all terminus/git calls. Every mutation polls `workflow:list` until workflows started since the operation are terminal |
 | `src/panel.js` | Webview panel, message router, native confirm dialogs |
@@ -35,6 +35,8 @@ node --check …    # syntax check
 
 ## Install (dev)
 
-Symlink the repo into `~/.vscode/extensions/earthmanweb.pantheon-dashboard-0.1.0`,
-reload VS Code, set `"pantheonDashboard.enabled": true` in the target
-workspace's `.vscode/settings.json`.
+Symlink the repo into `~/.vscode/extensions/earthmanweb.pantheon-dashboard-0.1.0`
+and reload VS Code. Activates only in workspaces with `pantheon.yml` /
+`pantheon.upstream.yml` at a folder root — no configuration.
+
+Bump `version` in package.json in the same commit as every pushed change.

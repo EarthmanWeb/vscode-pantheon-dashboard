@@ -43,15 +43,11 @@ git clone https://github.com/EarthmanWeb/vscode-pantheon-dashboard.git \
   ~/.vscode/extensions/earthmanweb.pantheon-dashboard-0.1.0
 ```
 
-Reload VS Code, then opt the workspace in — the extension stays dormant until
-the workspace's `.vscode/settings.json` sets:
-
-```json
-{ "pantheonDashboard.enabled": true }
-```
-
-The status bar then shows `☁ Pantheon`; the
-`Pantheon: Open Pantheon Dashboard` command opens the panel.
+Reload VS Code. The extension activates automatically — and only — in
+workspaces with a `pantheon.yml` (or `pantheon.upstream.yml`) at a folder
+root. The cloud icon appears in the Activity Bar (drag the view into the
+bottom Panel or secondary sidebar to move it); the status bar shows
+`☁ Pantheon`, and `Pantheon: Open Pantheon Dashboard` focuses the view.
 
 **2. Package a VSIX:**
 
@@ -62,10 +58,9 @@ code --install-extension pantheon-dashboard-0.1.0.vsix
 
 ## Settings
 
-| Setting                     | Default | Purpose                                           |
-| --------------------------- | ------- | ------------------------------------------------- |
-| `pantheonDashboard.enabled` | `false` | Per-workspace opt-in; dashboard is dormant unless true |
-| `pantheonDashboard.site`    | `""`    | Pantheon site machine name; empty = auto-match    |
+| Setting                  | Default | Purpose                                        |
+| ------------------------ | ------- | ---------------------------------------------- |
+| `pantheonDashboard.site` | `""`    | Pantheon site machine name; empty = auto-match |
 
 ## Tests
 
