@@ -81,7 +81,17 @@ Symlink the repo into `~/.vscode/extensions/earthmanweb.pantheon-dashboard-0.1.0
 and reload VS Code. Activates only in workspaces with `pantheon.yml` /
 `pantheon.upstream.yml` at a folder root — no configuration.
 
-Bump `version` in package.json in the same commit as every pushed change.
+## Versioning
+
+- `.githooks/pre-commit` bumps the **patch** version in package.json on every
+  commit (installed by `npm install` / `npm test` via `core.hooksPath`). Never
+  bump the patch by hand.
+- **Major**: bump manually (`npm version major --no-git-tag-version`) when a
+  change may break existing behavior.
+- **Minor**: bump manually (`npm version minor --no-git-tag-version`) when the
+  work reaches a suitable milestone.
+- A staged manual bump is detected and the hook skips that commit; it also
+  skips `git commit --amend`.
 
 ## Auto-Memory Symlink
 
