@@ -52,7 +52,7 @@ commits, deploys). Plain JavaScript, no build step.
 | `extension.js` | Activation (auto-detects `pantheon.yml` at a workspace folder root), status bar |
 | `src/shell.js` | Login-shell `execFile` runner — arg arrays only, never string interpolation |
 | `src/api.js` | `PantheonApi`: all terminus/git calls. Every mutation polls `workflow:list` until workflows started since the operation are terminal |
-| `src/panel.js` | Webview panel, message router, native confirm dialogs |
+| `src/panel.js` | Webview panel, message router (confirms are inline in the webview) |
 | `media/main.js` | Webview UI: request/response bridge keyed by `requestId`; spinners settle only when the host resolves |
 | `media/main.css` | VS Code theme variables only — no hardcoded colors |
 

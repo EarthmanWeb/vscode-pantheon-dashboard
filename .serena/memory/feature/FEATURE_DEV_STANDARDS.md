@@ -36,7 +36,7 @@ metadata:
 | `extension.js` | Activation (auto-detects `pantheon.yml`/`pantheon.upstream.yml`), status bar |
 | `src/shell.js` | Login-shell `execFile` runner — arg arrays only, never string interpolation |
 | `src/api.js`   | `PantheonApi`: all terminus/git calls; every mutation polls `workflow:list` until workflows started since the operation are terminal |
-| `src/panel.js` | Webview panel, message router, native confirm dialogs                |
+| `src/panel.js` | Webview panel, message router                                        |
 | `media/main.js`| Webview UI: request/response bridge keyed by `requestId`; spinners settle only when the host resolves |
 | `media/main.css` | VS Code theme variables only — no hardcoded colors                  |
 

@@ -1,16 +1,10 @@
 ---
 name: Pantheon Dashboard
-description: VS Code webview dashboard for Pantheon Terminus — connection mode, SFTP/git commits, pending commits, deploys, content sync, cache clear.
+description: Feature overview for the VS Code Pantheon Terminus dashboard — architecture layers, activation, message protocol, key files.
 metadata:
   type: feature
-paths:
-  - extension.js
-  - src/**
-  - media/**
-  - tests/**
-  - package.json
 obligations:
-  - New Terminus calls go in `src/api.js`; VS Code API stays in `src/panel.js`/`extension.js`; the webview NEVER runs commands.
+  - New Terminus calls go in `src/api.js`; VS Code API stays in `src/panel.js` / `extension.js`; the webview NEVER runs commands.
   - Every `PantheonApi` mutation MUST poll `workflow:list` via `waitForEnv` until workflows started since the operation are terminal before resolving.
 ---
 
@@ -44,7 +38,7 @@ obligations:
 media/main.js (webview)
    | postMessage({ type, requestId, ...payload })
    v
-src/panel.js  DashboardViewProvider.route/handle  (message router, native confirm dialogs)
+src/panel.js  DashboardViewProvider.route/handle  (message router)
    | calls PantheonApi methods
    v
 src/api.js    PantheonApi  (terminus/git command builders, waitForEnv polling)
@@ -57,6 +51,8 @@ terminus / git CLIs
 ```
 
 Responses flow back host -> webview tagged with the same `requestId`; errors become `{ type: 'error', requestId, message }`.
+
+Destructive confirms (mode-switch discard, clear-cache, content sync, push, deploy) are now INLINE in the webview (`media/main.js:openConfirm`/`closeConfirm`, one `#<key>-confirm` slide-down panel per card) — `src/panel.js` has NO native confirm dialogs (`vscode.window.showWarningMessage`) and NO `*Cancelled` response types. Cancel in the webview simply never sends the request.
 
 ## Activation
 
@@ -76,15 +72,15 @@ Responses flow back host -> webview tagged with the same `requestId`; errors bec
 | `init`          | `whoami`, `listSites`, `matchSite` (via `resolveSite`) | `loggedOut` or `init` (email, site, sites) | Auth-failure regex routes to `loggedOut` |
 | `multidevs`     | `listMultidevs`                              | `multidevs` (envs)                |       |
 | `devInfo`       | `connectionMode`                             | `devInfo` (mode)                  |       |
-| `setMode`       | `diffstat` (git-mode guard) + `setMode` + `connectionMode` | `devInfo` or `setModeCancelled` | Confirm dialog (modal) when switching to git with uncommitted SFTP changes |
+| `setMode`       | `diffstat` (git-mode guard) + `setMode` + `connectionMode` | `confirmModeSwitch` (count) or `devInfo` (mode) | Returns `confirmModeSwitch` when switching dev to git with non-empty diffstat and `!msg.confirmed`; webview opens its inline confirm and resends with `confirmed: true` |
 | `diffstat`      | `diffstat`                                   | `diffstat` (files)                |       |
 | `commit`        | `commit` + `diffstat`                        | `diffstat` (files)                |       |
 | `unpushed`      | `unpushedCommits`                            | `unpushed` (branch, commits)      |       |
-| `syncContent`   | `cloneContent`                               | `contentSynced` or `syncCancelled` | Confirm dialog (modal, destructive overwrite warning) |
-| `clearCache`    | `clearCache`                                 | `cacheCleared` or `clearCacheCancelled` | Confirm dialog (modal) |
-| `push`          | `push` + `unpushedCommits`                   | `unpushed` (branch, commits) or `pushCancelled` | Confirm dialog (modal) |
+| `syncContent`   | `cloneContent`                               | `contentSynced`                   | Webview gates this behind its own inline confirm BEFORE sending; `src/panel.js` has no server-side confirm or target-env restriction (see `mem:dom/DOM_DASHBOARD_CONTENT_SYNC`) |
+| `clearCache`    | `clearCache`                                 | `cacheCleared`                    | Webview gates this behind its own inline confirm BEFORE sending |
+| `push`          | `push` + (`cloneContent` or `clearCache`, optional) + `unpushedCommits` | `unpushed` (branch, commits) | Webview gates this behind its own inline confirm BEFORE sending; `cloneContent` runs when `msg.sync` set, else `clearCache` when `msg.cc` set |
 | `pending`       | `pendingCommits`                             | `pending` (env, commits)          |       |
-| `deploy`        | `deploy` + `pendingCommits`                  | `pending` (env, commits) or `deployCancelled` | Confirm dialog (modal) |
+| `deploy`        | `deploy` + (`cloneContent`, optional) + `pendingCommits` | `pending` (env, commits)  | Webview gates this behind its own inline confirm BEFORE sending; `cc: msg.cc && !msg.sync` passed to `deploy()`; `cc` rides the trailing `cloneContent` call instead when `msg.sync` is set |
 
 - Error propagation: any thrown error in `handle()` is caught by `route()` and posted as `{ type: 'error', requestId, message: err.message }`; the webview bridge rejects the pending request promise, and callers render it with `fail()` into the card's status area.
 
@@ -96,7 +92,7 @@ Responses flow back host -> webview tagged with the same `requestId`; errors bec
 | `src/shell.js`   | `run(bin, args, cwd)` — login-shell `execFile` wrapper                       |
 | `src/api.js`     | `PantheonApi` (constructor, `terminus`, `terminusJson`, `git`, `whoami`, `listSites`, `listMultidevs`, `connectionMode`, `setMode`, `diffstat`, `commit`, `unpushedCommits`, `pendingCommits`, `deploy`, `clearCache`, `cloneContent`, `push`, `waitForEnv`); `matchSite` |
 | `src/panel.js`   | `DashboardViewProvider` (`resolveWebviewView`, `route`, `handle`, `resolveSite`, `html`), `workspaceRoot` |
-| `media/main.js`  | `request`/`inflight` map (requestId bridge), `skeleton`, `refreshAll`, `refreshDev`, `refreshEnvs`, `refreshPending`, `refreshDownstream`, `pollUnpushed`, action handlers (`switchMode`, `clearCache`, `syncContent`, `syncDev`, `commitDev`, `deployEnv`), `init` |
+| `media/main.js`  | `request`/`inflight` map (requestId bridge), `skeleton`, `refreshAll`, `refreshDev`, `refreshEnvs`, `refreshPending`, `refreshDownstream`, `openConfirm`/`closeConfirm`/`confirmFieldsHtml` (inline confirm panel), action handlers (`switchMode`/`requestSetMode`, `clearCache`, `syncContent`/`toggleSyncConfirm`, `syncDev`, `commitDev`, `deployEnv`), `init` |
 | `media/main.css` | VS Code theme-variable-only styling, no hardcoded colors                     |
 | `package.json`   | `contributes` (commands, viewsContainers, views, configuration), `activationEvents` |
 
@@ -108,10 +104,17 @@ Responses flow back host -> webview tagged with the same `requestId`; errors bec
 | `mem:dom/DOM_DASHBOARD_CONNECTION_MODE`     | dev env SFTP/git mode toggle behavior                 |
 | `mem:dom/DOM_DASHBOARD_COMMITS`             | SFTP commit + git push/unpushed-commit flows          |
 | `mem:dom/DOM_DASHBOARD_DEPLOYS`             | pending-commit and deploy flow (dev->test->live)       |
-| `mem:dom/DOM_DASHBOARD_CLEAR_CACHE`         | clear-cache confirm + wait flow                       |
+| `mem:dom/DOM_DASHBOARD_CLEAR_CACHE`         | clear-cache inline confirm + wait flow                |
 | `mem:dom/DOM_DASHBOARD_CONTENT_SYNC`        | `cloneContent` db/files/cc sync flow                  |
 | `mem:feature/FEATURE_TESTS`                 | test runner, Gherkin spec conventions                 |
 | `mem:feature/FEATURE_DEV_STANDARDS`         | style, security, versioning, commit-prefix standards  |
+| `mem:spec/SPEC_DASHBOARD_SESSION`           | init/login/site-resolution spec                       |
+| `mem:spec/SPEC_DASHBOARD_CONNECTION_MODE`   | mode-toggle spec                                      |
+| `mem:spec/SPEC_DASHBOARD_LOCAL_COMMITS`     | diffstat/commit/push spec                             |
+| `mem:spec/SPEC_DASHBOARD_DEPLOY`            | deploy spec                                           |
+| `mem:spec/SPEC_DASHBOARD_CLEAR_CACHES`      | clear-cache spec                                      |
+| `mem:spec/SPEC_DASHBOARD_CONTENT_SYNC`      | content-sync spec                                     |
+| `mem:spec/SPEC_DASHBOARD_WORKFLOWS`         | workflow-polling spec                                 |
 
 ## Testing
 

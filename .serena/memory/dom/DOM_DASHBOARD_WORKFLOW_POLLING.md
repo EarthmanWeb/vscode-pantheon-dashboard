@@ -1,11 +1,11 @@
 ---
 name: Dashboard Workflow Polling
-description: How PantheonApi mutations wait for Pantheon workflows to settle, and how the webview refreshes downstream commit lists afterward.
+description: waitForEnv polling contract shared by every mutating PantheonApi call, plus downstream refresh after a card settles.
 metadata:
   type: domain
 obligations:
-  - Every mutating `PantheonApi` method MUST call `waitForEnv(site, env, since)` with `since = Date.now() / 1000` captured BEFORE issuing the terminus/git command.
-  - After a card's workflow settles (success or failure), refresh every downstream env's pending-commit list via `refreshDownstream`.
+  - Capture `since = Date.now() / 1000` BEFORE issuing the terminus/git command, then pass it to `waitForEnv`.
+  - Never wait on workflows matching `BACKGROUND_WORKFLOWS` (Pantheon housekeeping) — exclude them from the poll window.
 ---
 
 [new-memory-justified: orchestrator-specified new domain memory for the waitForEnv polling contract; dom/DOM_DASHBOARD_CONNECTION_MODE covers the SFTP/git mode toggle behavior, a different concern (referenced as a sibling memory in feature/FEATURE_DASHBOARD's Related Memories table), not the polling/wait mechanism itself]
@@ -44,3 +44,8 @@ obligations:
 - Called from `commitDev`, `syncDev` (push), and `deployEnv` — AFTER `setBusy(key, false)`, unconditionally after the try/catch, so a failed workflow still triggers a downstream refresh since Pantheon may have partially applied the change.
 - `refreshPending(env)` re-requests `{ type: 'pending', site, env }` and re-renders the env's commit list and badge count.
 - Spinner/busy state (`setBusy`) is cleared independently of the downstream refresh — the card's own spinner settles as soon as its own request resolves/rejects; the downstream cards get their own separate spinner cycle via `refreshPending`.
+
+## Related
+
+- `mem:feature/FEATURE_DASHBOARD`
+- `mem:spec/SPEC_DASHBOARD_WORKFLOWS`
