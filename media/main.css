@@ -181,8 +181,9 @@ table.diffstat td {
   color: var(--vscode-gitDecoration-deletedResourceForeground);
 }
 
+/* Collapses to 0 when empty: 10px gap + 5px margin + 10px gap = 25px */
 .status {
-  min-height: 1.2em;
+  margin-top: 5px;
   font-size: 0.85em;
 }
 
