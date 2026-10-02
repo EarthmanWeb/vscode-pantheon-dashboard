@@ -395,6 +395,7 @@
         return;
       }
       state.site = res.site;
+      state.sites = res.sites;
       state.email = res.email;
       skeleton();
       refreshAll();
