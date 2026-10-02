@@ -121,7 +121,8 @@ textarea {
   resize: vertical;
 }
 
-.commitbox {
+.commitbox,
+.body {
   display: flex;
   flex-direction: column;
   gap: 6px;
