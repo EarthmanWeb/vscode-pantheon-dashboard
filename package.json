@@ -26,6 +26,25 @@
         "category": "Pantheon"
       }
     ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "pantheonDashboard",
+          "title": "Pantheon",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "pantheonDashboard": [
+        {
+          "type": "webview",
+          "id": "pantheonDashboard.view",
+          "name": "Dashboard",
+          "when": "pantheonDashboard.enabled"
+        }
+      ]
+    },
     "configuration": {
       "title": "Pantheon Dashboard",
       "properties": {

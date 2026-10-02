@@ -1,18 +1,30 @@
 const vscode = require('vscode');
-const { DashboardPanel } = require('./src/panel');
+const { DashboardViewProvider } = require('./src/panel');
 
 const activate = (context) => {
-  // Per-workspace opt-in: the extension stays dormant unless the workspace
-  // sets "pantheonDashboard.enabled": true in .vscode/settings.json.
+  // Per-workspace opt-in: "pantheonDashboard.enabled": true in the workspace's
+  // settings (.code-workspace "settings" block, or .vscode/settings.json for a
+  // plain folder window). The when-clause context hides the view elsewhere.
   const enabled = vscode.workspace
     .getConfiguration('pantheonDashboard')
     .get('enabled');
+  vscode.commands.executeCommand(
+    'setContext',
+    'pantheonDashboard.enabled',
+    !!enabled
+  );
   if (!enabled) {
     return;
   }
   context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(
+      'pantheonDashboard.view',
+      new DashboardViewProvider(context)
+    )
+  );
+  context.subscriptions.push(
     vscode.commands.registerCommand('pantheonDashboard.open', () =>
-      DashboardPanel.open(context)
+      vscode.commands.executeCommand('pantheonDashboard.view.focus')
     )
   );
   const item = vscode.window.createStatusBarItem(

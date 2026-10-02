@@ -4,8 +4,6 @@ const { PantheonApi, matchSite } = require('./api');
 
 const DOCS_URL = 'https://docs.pantheon.io/terminus/install';
 
-let current;
-
 const workspaceRoot = () => {
   const folders = vscode.workspace.workspaceFolders;
   if (!folders || !folders.length) {
@@ -14,32 +12,22 @@ const workspaceRoot = () => {
   return folders[0].uri.fsPath;
 };
 
-class DashboardPanel {
-  static open(context) {
-    if (current) {
-      current.panel.reveal();
-      return;
-    }
-    current = new DashboardPanel(context);
+// Contributed webview view — lives in the Activity Bar container and can be
+// dragged into the bottom Panel or the secondary sidebar like any view.
+class DashboardViewProvider {
+  constructor(context) {
+    this.extensionUri = context.extensionUri;
   }
 
-  constructor(context) {
+  resolveWebviewView(webviewView) {
+    this.webview = webviewView.webview;
     this.api = new PantheonApi(workspaceRoot());
-    this.panel = vscode.window.createWebviewPanel(
-      'pantheonDashboard',
-      'Pantheon',
-      vscode.ViewColumn.Active,
-      {
-        enableScripts: true,
-        retainContextWhenHidden: true,
-        localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'media')]
-      }
-    );
-    this.panel.webview.html = this.html(context.extensionUri);
-    this.panel.onDidDispose(() => {
-      current = undefined;
-    });
-    this.panel.webview.onDidReceiveMessage((msg) => this.route(msg));
+    this.webview.options = {
+      enableScripts: true,
+      localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, 'media')]
+    };
+    this.webview.html = this.html();
+    this.webview.onDidReceiveMessage((msg) => this.route(msg));
   }
 
   async route(msg) {
@@ -49,9 +37,9 @@ class DashboardPanel {
     }
     try {
       const result = await this.handle(msg);
-      this.panel.webview.postMessage({ ...result, requestId: msg.requestId });
+      this.webview.postMessage({ ...result, requestId: msg.requestId });
     } catch (err) {
-      this.panel.webview.postMessage({
+      this.webview.postMessage({
         type: 'error',
         requestId: msg.requestId,
         message: err.message
@@ -166,11 +154,11 @@ class DashboardPanel {
     return { site, sites };
   }
 
-  html(extensionUri) {
-    const webview = this.panel.webview;
+  html() {
+    const webview = this.webview;
     const nonce = crypto.randomBytes(16).toString('base64');
     const asset = (file) =>
-      webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', file));
+      webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'media', file));
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -188,4 +176,4 @@ class DashboardPanel {
   }
 }
 
-module.exports = { DashboardPanel };
+module.exports = { DashboardViewProvider };
