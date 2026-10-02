@@ -130,7 +130,7 @@
   const renderUnpushed = (branch, commits) => {
     const env = state.devEnv;
     if (!commits.length) {
-      byId('dev-body').innerHTML = `<p class="empty">Local ${esc(branch)} matches origin/${esc(branch)} — nothing to sync.</p>`;
+      byId('dev-body').innerHTML = `<div class="statusblock">Status: Local ${esc(branch)} matches origin/${esc(branch)}.</div>`;
       return;
     }
     const label = env === 'dev' ? 'Dev' : env;

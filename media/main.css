@@ -180,6 +180,14 @@ table.diffstat td {
   font-size: 0.85em;
 }
 
+.statusblock {
+  padding: 8px 10px;
+  border-left: 3px solid var(--vscode-gitDecoration-addedResourceForeground);
+  border-radius: 4px;
+  background: var(--vscode-list-hoverBackground);
+  font-size: 0.85em;
+}
+
 .empty {
   margin: 0;
   opacity: 0.75;
