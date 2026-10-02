@@ -13,11 +13,6 @@ header {
   margin: 8px 0 14px;
 }
 
-header h1 {
-  margin: 0;
-  font-size: 1.3em;
-}
-
 /* Email always on its own second row */
 .who {
   flex-basis: 100%;
