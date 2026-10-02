@@ -181,8 +181,8 @@
       <header>
         <h1>Pantheon</h1>
         <select id="site-select" title="Site">${siteOptions}</select>
+        <button id="refresh" class="icon" title="Refresh" aria-label="Refresh">⟳</button>
         <span class="who">${esc(state.email)}</span>
-        <button id="refresh" class="secondary">⟳ Refresh</button>
       </header>
       <main>
         <section class="card" id="card-dev">

@@ -18,13 +18,26 @@ header h1 {
   font-size: 1.3em;
 }
 
-/* Full-length email: drops to its own row when it doesn't fit beside the
-   site dropdown; break-word (not anywhere) keeps that wrap-first behavior. */
+/* Email always on its own second row */
 .who {
-  flex: 1 1 auto;
-  overflow-wrap: break-word;
+  flex-basis: 100%;
+  overflow-wrap: anywhere;
   opacity: 0.7;
   font-size: 0.85em;
+}
+
+/* Icon-only refresh, pinned to the right end of row 1 */
+button.icon {
+  margin-left: auto;
+  padding: 0 6px;
+  background: transparent;
+  color: var(--vscode-foreground);
+  font-size: 1.6em;
+  line-height: 1.2;
+}
+
+button.icon:hover:not(:disabled) {
+  background: var(--vscode-toolbar-hoverBackground);
 }
 
 select {
