@@ -35,7 +35,8 @@
     email: null,
     devMode: null,
     devEnv: 'dev',
-    envsSite: null
+    envsSite: null,
+    unpushedCount: 0
   };
   const pendingCounts = { test: 0, live: 0 };
 
@@ -67,6 +68,10 @@
 
   const syncButtons = () => {
     byId('dev-commit').disabled = !byId('dev-message').value.trim();
+    const sync = byId('dev-sync');
+    if (sync) {
+      sync.disabled = !state.unpushedCount;
+    }
     for (const env of ['test', 'live']) {
       byId(`${env}-deploy`).disabled =
         !byId(`${env}-note`).value.trim() || !pendingCounts[env];
@@ -128,18 +133,20 @@
   };
 
   const renderUnpushed = (branch, commits) => {
-    const env = state.devEnv;
-    if (!commits.length) {
-      byId('dev-body').innerHTML = `<div class="statusblock">Status: Local ${esc(branch)} matches origin/${esc(branch)}.</div>`;
-      return;
-    }
-    const label = env === 'dev' ? 'Dev' : env;
+    const label = state.devEnv === 'dev' ? 'Dev' : state.devEnv;
+    state.unpushedCount = commits.length;
+    const status = commits.length
+      ? `<p class="empty">${commits.length} local commit(s) on ${esc(branch)} not pushed to origin/${esc(branch)}.</p>`
+      : `<div class="statusblock">Status: Local ${esc(branch)} matches origin/${esc(branch)}.</div>`;
+    const list = commits.length
+      ? `<div class="${listClass(commits)}">${commitList(commits)}</div>`
+      : '';
     byId('dev-body').innerHTML = `
-      <p class="empty">${commits.length} local commit(s) on ${esc(branch)} not pushed to origin/${esc(branch)}.</p>
-      <button id="dev-sync">Sync to ${esc(label)}</button>
-      <div class="${listClass(commits)}">${commitList(commits)}</div>`;
+      ${status}
+      <button id="dev-sync"${commits.length ? '' : ' disabled'}>Sync to ${esc(label)}</button>
+      ${list}`;
     byId('dev-sync').addEventListener('click', () =>
-      syncDev(branch, commits.length)
+      syncDev(branch, state.unpushedCount)
     );
   };
 
