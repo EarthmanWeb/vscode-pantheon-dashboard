@@ -132,6 +132,11 @@ textarea {
   overflow-y: auto;
 }
 
+/* ~3 commit rows, with the 4th peeking to signal scrollability */
+.commits.scroll {
+  max-height: 170px;
+}
+
 .commits {
   display: flex;
   flex-direction: column;

@@ -88,6 +88,10 @@
     });
   };
 
+  // Commit lists scroll only past 3 entries.
+  const listClass = (commits) =>
+    commits.length > 3 ? 'commits scroll' : 'commits';
+
   const commitList = (commits) =>
     commits
       .map(
@@ -132,8 +136,8 @@
     const label = env === 'dev' ? 'Dev' : env;
     byId('dev-body').innerHTML = `
       <p class="empty">${commits.length} local commit(s) on ${esc(branch)} not pushed to origin/${esc(branch)}.</p>
-      <div class="scroll commits">${commitList(commits)}</div>
-      <button id="dev-sync">Sync to ${esc(label)}</button>`;
+      <button id="dev-sync">Sync to ${esc(label)}</button>
+      <div class="${listClass(commits)}">${commitList(commits)}</div>`;
     byId('dev-sync').addEventListener('click', () =>
       syncDev(branch, commits.length)
     );
@@ -144,7 +148,7 @@
     const source = env === 'test' ? 'dev' : 'test';
     byId(`${env}-badge`).textContent = `${commits.length} pending`;
     byId(`${env}-body`).innerHTML = commits.length
-      ? `<div class="scroll commits">${commitList(commits)}</div>`
+      ? `<div class="${listClass(commits)}">${commitList(commits)}</div>`
       : `<p class="empty">Up to date with ${source} — nothing to deploy.</p>`;
   };
 
@@ -153,11 +157,11 @@
       <section class="card" id="card-${env}">
         <h2>${env} <span class="badge" id="${env}-badge"></span></h2>
         <div class="status" id="${env}-status"></div>
-        <div class="body" id="${env}-body"></div>
         <div class="commitbox">
           <textarea id="${env}-note" rows="2" placeholder="Deploy note"></textarea>
           <button id="${env}-deploy" disabled>${label}</button>
         </div>
+        <div class="body" id="${env}-body"></div>
       </section>`;
     const siteOptions = [
       state.site ? '' : '<option value="" selected disabled>Select a site…</option>',
@@ -184,11 +188,11 @@
             <button data-mode="git">Git</button>
           </div>
           <div class="status" id="dev-status"></div>
-          <div class="body" id="dev-body"></div>
           <div class="commitbox" id="dev-commitbox" hidden>
             <textarea id="dev-message" rows="3" placeholder="Commit message"></textarea>
             <button id="dev-commit" disabled>Commit to dev</button>
           </div>
+          <div class="body" id="dev-body"></div>
         </section>
         ${deployCard('test', 'Deploy Dev → Test')}
         ${deployCard('live', 'Deploy Test → Live')}
