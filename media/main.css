@@ -35,6 +35,18 @@ button.icon:hover:not(:disabled) {
   background: var(--vscode-toolbar-hoverBackground);
 }
 
+.h2-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+button.icon-sm {
+  margin-left: 0;
+  padding: 0 4px;
+  font-size: 1.1rem;
+}
+
 select {
   max-width: 100%;
   min-width: 0;

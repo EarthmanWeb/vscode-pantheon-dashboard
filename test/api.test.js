@@ -242,6 +242,19 @@ test('push sends the branch to origin then waits for the env sync', async () => 
   assert.equal(calls[1][1], 'workflow:list');
 });
 
+test('clearCache clears the env then waits for workflows', async () => {
+  const calls = [];
+  const api = new PantheonApi('/tmp', {
+    pollMs: 1,
+    run: async (bin, args) => {
+      calls.push(args.slice(0, 2).join(' '));
+      return args[0] === 'workflow:list' ? '{}' : '';
+    }
+  });
+  await api.clearCache('site', 'live');
+  assert.deepEqual(calls, ['env:clear-cache site.live', 'workflow:list site']);
+});
+
 test('setMode switches, waits, then reports the fresh mode', async () => {
   const calls = [];
   const api = new PantheonApi('/tmp', {

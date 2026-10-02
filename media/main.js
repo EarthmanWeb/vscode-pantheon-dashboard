@@ -160,9 +160,13 @@
   };
 
   const skeleton = () => {
+    const cacheButton = (key) =>
+      `<button class="icon icon-sm" data-clear="${key}" title="Clear Caches" aria-label="Clear Caches">🧹</button>`;
     const deployCard = (env, label) => `
       <section class="card" id="card-${env}">
-        <h2>${env} <span class="badge" id="${env}-badge"></span></h2>
+        <h2>${env}
+          <span class="h2-actions"><span class="badge" id="${env}-badge"></span>${cacheButton(env)}</span>
+        </h2>
         <div class="status" id="${env}-status"></div>
         <div class="commitbox">
           <textarea id="${env}-note" rows="2" placeholder="Deploy note"></textarea>
@@ -187,7 +191,7 @@
         <section class="card" id="card-dev">
           <h2>
             <select id="dev-env"><option value="dev" selected>dev</option></select>
-            <span class="badge" id="dev-badge"></span>
+            <span class="h2-actions"><span class="badge" id="dev-badge"></span>${cacheButton('dev')}</span>
           </h2>
           <div class="toggle" id="dev-toggle">
             <button data-mode="sftp">SFTP</button>
@@ -208,6 +212,9 @@
     byId('site-select').addEventListener('change', (event) => {
       state.site = event.target.value;
       refreshAll();
+    });
+    document.querySelectorAll('[data-clear]').forEach((btn) => {
+      btn.addEventListener('click', () => clearCache(btn.dataset.clear));
     });
     byId('dev-env').addEventListener('change', (event) => {
       state.devEnv = event.target.value;
@@ -348,6 +355,26 @@
       setBusy('dev', false);
       syncButtons();
     }
+  };
+
+  // `key` is the card (dev/test/live); the dev card targets the selected env.
+  const clearCache = async (key) => {
+    const env = key === 'dev' ? state.devEnv : key;
+    setBusy(key, true);
+    setStatus(key, spin(`Clearing caches on ${env} — waiting for Pantheon…`));
+    try {
+      const res = await request({ type: 'clearCache', site: state.site, env });
+      setStatus(
+        key,
+        res.type === 'cacheCleared'
+          ? `<div class="statusblock">Caches cleared on ${esc(env)}.</div>`
+          : ''
+      );
+    } catch (err) {
+      setStatus(key, fail(err));
+    }
+    setBusy(key, false);
+    syncButtons();
   };
 
   // Git mode: push local commits to origin, deploying them to the env.

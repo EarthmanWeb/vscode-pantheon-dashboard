@@ -111,6 +111,21 @@ class DashboardViewProvider {
           commits: await this.api.unpushedCommits(branch)
         };
       }
+      case 'clearCache': {
+        const choice = await vscode.window.showWarningMessage(
+          `Clear all caches on ${msg.site}.${msg.env.toUpperCase()}?`,
+          { modal: true },
+          'Clear Caches'
+        );
+        if (choice !== 'Clear Caches') {
+          return { type: 'clearCacheCancelled' };
+        }
+        await this.api.clearCache(msg.site, msg.env);
+        vscode.window.showInformationMessage(
+          `Caches cleared on ${msg.site}.${msg.env}.`
+        );
+        return { type: 'cacheCleared' };
+      }
       case 'push': {
         const choice = await vscode.window.showWarningMessage(
           `Push ${msg.count} commit(s) to origin/${msg.branch}? This deploys to ${msg.site}.${msg.env}.`,

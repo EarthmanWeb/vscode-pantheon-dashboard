@@ -2,7 +2,7 @@
   "name": "pantheon-dashboard",
   "displayName": "Pantheon Dashboard",
   "description": "Mini dashboard for Pantheon Terminus: connection mode, SFTP commits, pending commits and deploys.",
-  "version": "0.4.12",
+  "version": "0.5.0",
   "publisher": "earthmanweb",
   "license": "MIT",
   "engines": {

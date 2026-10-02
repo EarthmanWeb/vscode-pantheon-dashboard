@@ -139,6 +139,12 @@ class PantheonApi {
     await this.waitForEnv(site, env, since);
   }
 
+  async clearCache(site, env) {
+    const since = Date.now() / 1000;
+    await this.terminus(['env:clear-cache', `${site}.${env}`]);
+    await this.waitForEnv(site, env, since);
+  }
+
   // Push the local branch to origin (Pantheon), which deploys it to the env,
   // then wait for the env's "Sync code" workflows to finish.
   async push(site, env, branch) {
