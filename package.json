@@ -2,7 +2,7 @@
   "name": "pantheon-dashboard",
   "displayName": "Pantheon Dashboard",
   "description": "Mini dashboard for Pantheon Terminus: connection mode, SFTP commits, pending commits and deploys.",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "publisher": "earthmanweb",
   "license": "MIT",
   "engines": {
@@ -13,6 +13,8 @@
   ],
   "main": "./extension.js",
   "scripts": {
+    "prepare": "git config core.hooksPath .githooks",
+    "pretest": "npm run prepare --silent",
     "test": "node --test"
   },
   "activationEvents": [
@@ -56,5 +58,8 @@
         }
       }
     }
+  },
+  "devDependencies": {
+    "jsdom": "^29.1.1"
   }
 }

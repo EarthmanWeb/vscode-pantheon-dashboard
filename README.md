@@ -66,27 +66,40 @@ git -C ~/.vscode/extensions/earthmanweb.pantheon-dashboard pull
 - **Multidev switcher** — the dev card's env dropdown lists `dev` plus every
   multidev (`terminus multidev:list`); all dev controls apply to the selected
   env.
-- **SFTP / Git mode toggle** — `connection:set`, with a confirm dialog when
-  leaving SFTP mode would discard uncommitted changes.
+- **No native pop-ups** — every confirmation (Clear Caches, Sync Content,
+  Deploy, Push/"Sync to Dev", and switching to Git with uncommitted SFTP
+  changes) is an inline slide-down panel inside the card, not a VS Code modal
+  dialog. The spinner and status line only appear after you confirm.
+- **SFTP / Git mode toggle** — `connection:set`; switching to Git mode when
+  there are uncommitted SFTP changes opens the dev card's inline confirm
+  (discarding those changes) before the switch runs.
 - **SFTP mode** — uncommitted changes on the server (`env:diffstat`) plus a
   commit message box (`env:commit`).
 - **Git mode** — local commits on the env's branch (`master` for dev, the env
   name for a multidev) not yet pushed to origin, with a **Sync** button that
-  pushes them (disabled when there is nothing to sync).
+  opens an inline confirm before pushing them (disabled when there is nothing
+  to sync).
 - **Test / Live** — commits waiting to be deployed (from Pantheon's
   `env:code-log` environment labels), a deploy-note box, and a Deploy button
-  with a confirm dialog (`env:deploy --note`).
+  that opens an inline confirm before running `env:deploy --note`.
 - **Workflow-aware spinners** — after every mutating operation the extension
   polls `terminus workflow:list` until all workflows started by the operation
   reach a terminal status; the UI only updates when Pantheon is actually done.
+- **Deploy / push sync options** — the inline confirm for Deploy to Test and
+  for Push ("Sync to Dev") also offers "Sync from" (pick any other
+  environment, including multidevs), **Database**, **Files** (both unchecked
+  by default), and **Clear caches afterwards** (unchecked by default); the
+  content sync (`env:clone-content`) runs after the deploy/push workflow
+  completes. The inline confirm for a Live deploy only offers **Clear caches
+  afterwards** (`env:deploy --cc`) — no sync options.
 - **Sync content** — a sync icon next to Clear Caches on the Dev and Test
-  cards opens a slide-down panel: pick any other environment (including
+  cards opens its own slide-down panel: pick any other environment (including
   multidevs) as the source, then tick **Database** and/or **Files** (both
   unchecked by default; Sync stays disabled until at least one is ticked) and
-  optionally **Clear caches afterwards** (unchecked by default). A confirm
-  dialog precedes the run; the spinner waits for the Pantheon clone workflows
-  on the target environment (up to 60 minutes). Runs
-  `terminus env:clone-content`.
+  optionally **Clear caches afterwards** (unchecked by default). There is no
+  separate confirm dialog — clicking the panel's own Sync button is the
+  confirmation. The spinner waits for the Pantheon clone workflows on the
+  target environment (up to 60 minutes). Runs `terminus env:clone-content`.
 - **Unpushed local commits** — the Dev card (Git mode) checks the local repo
   every 5 seconds without fetching, so new local commits show up
   automatically as "N unpushed local commit(s)". **Refresh** still fetches
@@ -115,14 +128,17 @@ code --install-extension pantheon-dashboard-<version>.vsix
 | ------------------------ | ------- | ---------------------------------------------- |
 | `pantheonDashboard.site` | `""`    | Pantheon site machine name; empty = auto-match |
 
-## Tests
+## Tests / Development
 
 ```bash
 npm test
 ```
 
-Unit tests cover the API layer (`src/api.js`) with a stubbed command runner —
-no network, no Terminus required.
+`npm test` runs the `node:test` suites in `tests/`: the API layer
+(`src/api.js`, stubbed command runner), the message router
+(`src/panel.js`, with a stubbed `vscode` module), and the webview UI
+(`media/main.js`, via `jsdom`) — no network, no Terminus required. Gherkin
+specs describing the behavior each suite covers live in `tests/specs/`.
 
 ## Security — no stored secrets
 

@@ -1,0 +1,45 @@
+@dashboard
+Feature: Waiting for Pantheon workflows
+  Every mutating operation waits until the workflows it started on the target
+  environment are finished before the card settles.
+
+  Scenario: Waits until running workflows finish
+    Given a workflow on dev is "running" for two polls then "succeeded"
+    When the host waits for dev
+    Then it polls the workflow list three times
+    And it resolves
+
+  Scenario: A failed workflow fails the operation
+    Given a workflow on dev "failed"
+    When the host waits for dev
+    Then it fails with "Pantheon workflow failed"
+
+  Scenario: Workflows from before the operation are ignored
+    Given a workflow on dev started long before the operation is "running"
+    When the host waits for dev
+    Then it resolves
+
+  Scenario: Pantheon housekeeping workflows are ignored
+    Given the "Update the Package Index Service" workflow on live is "running"
+    And the deploy workflow on live "succeeded"
+    When the host waits for live
+    Then it resolves
+
+  Scenario: Workflows on other environments are ignored
+    Given a workflow on live is "running"
+    When the host waits for test
+    Then it resolves
+
+  Scenario: Timing out reports the stuck workflows
+    Given a workflow on dev stays "running"
+    When the host waits for dev with a short timeout
+    Then it fails with "Timed out waiting for workflows on dev"
+
+  Scenario: Content clones get a 60 minute timeout
+    When the host clones content
+    Then it waits with a 60 minute timeout
+
+  Scenario: Errors reach the card that started the operation
+    Given a host operation fails with "stderr text"
+    When the webview receives the error response
+    Then the card that sent the request shows "stderr text"
