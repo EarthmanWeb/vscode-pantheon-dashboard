@@ -1,5 +1,5 @@
 #!/bin/sh
-# Auto-bump the patch version in package.json on every commit.
+# Auto-bump the patch version in package.json + package-lock.json on every commit.
 # Skipped when the staged version already differs from HEAD (a manual
 # major/minor bump) and on `git commit --amend` (HEAD already bumped).
 # Installed by `npm install` / `npm test` via core.hooksPath.
@@ -21,11 +21,11 @@ if [ "$head_version" != "$staged_version" ]; then
   exit 0
 fi
 
-if ! git diff --quiet -- package.json; then
-  echo 'pre-commit: package.json has unstaged changes; stage or stash them before committing.' >&2
+if ! git diff --quiet -- package.json package-lock.json; then
+  echo 'pre-commit: package.json/package-lock.json have unstaged changes; stage or stash them before committing.' >&2
   exit 1
 fi
 
 npm version patch --no-git-tag-version --silent >/dev/null
-git add package.json
+git add package.json package-lock.json
 echo "pre-commit: version $head_version -> $(version_of '')"
