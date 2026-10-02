@@ -1,6 +1,61 @@
 # Pantheon Dashboard (VS Code extension)
 
-Mini dashboard surfacing Pantheon Terminus operations for the workspace's site:
+A small dashboard panel inside VS Code for working with a Pantheon-hosted site.
+Switch the Dev environment (or a Multidev) between SFTP and Git mode, commit
+server changes, push local commits, and deploy Dev → Test → Live — each with a
+spinner that waits until Pantheon has actually finished. It appears
+automatically whenever you open a Pantheon site folder (one containing
+`pantheon.yml`), using the Terminus login you already have on your computer.
+
+## Install (step by step)
+
+> Works on macOS and Linux. You only do steps 1–2 once per computer.
+
+1. **Install Terminus** (Pantheon's command-line tool). On a Mac with
+   [Homebrew](https://brew.sh), open the **Terminal** app and run:
+
+   ```bash
+   brew install pantheon-systems/external/terminus
+   ```
+
+   Other systems: follow
+   [Pantheon's Terminus install guide](https://docs.pantheon.io/terminus/install).
+
+2. **Log Terminus in to your Pantheon account.** Create a machine token in the
+   Pantheon dashboard ([how](https://docs.pantheon.io/machine-tokens)), then
+   run (replace `YOUR_TOKEN`):
+
+   ```bash
+   terminus auth:login --machine-token=YOUR_TOKEN
+   ```
+
+3. **Open VS Code's terminal**: menu **Terminal → New Terminal**.
+
+4. **Download the extension into VS Code's extensions folder** — paste this
+   into that terminal and press Enter:
+
+   ```bash
+   git clone https://github.com/EarthmanWeb/vscode-pantheon-dashboard.git ~/.vscode/extensions/earthmanweb.pantheon-dashboard
+   ```
+
+5. **Reload VS Code**: press `Cmd+Shift+P` (Mac) or `Ctrl+Shift+P` (Linux),
+   type **Reload Window**, and press Enter.
+
+6. **Open your Pantheon site's folder** (the one with `pantheon.yml` in it) and
+   click the **cloud icon** in the left-hand Activity Bar. The dashboard opens.
+   You can drag its tab into the bottom panel or the right sidebar.
+
+**Updating later:** in VS Code's terminal run the command below, then repeat
+step 5.
+
+```bash
+git -C ~/.vscode/extensions/earthmanweb.pantheon-dashboard pull
+```
+
+**Not logged in?** The panel says so and links to the Terminus docs — log in
+(step 2), then reload (step 5).
+
+## Features
 
 - **Login gate** — uses your shell's `terminus` session. Not logged in? The panel
   shows login instructions and a link to the
@@ -16,7 +71,8 @@ Mini dashboard surfacing Pantheon Terminus operations for the workspace's site:
 - **SFTP mode** — uncommitted changes on the server (`env:diffstat`) plus a
   commit message box (`env:commit`).
 - **Git mode** — local commits on the env's branch (`master` for dev, the env
-  name for a multidev) not yet pushed to origin (read-only; commit via git).
+  name for a multidev) not yet pushed to origin, with a **Sync** button that
+  pushes them (disabled when there is nothing to sync).
 - **Test / Live** — commits waiting to be deployed (from Pantheon's
   `env:code-log` environment labels), a deploy-note box, and a Deploy button
   with a confirm dialog (`env:deploy --note`).
@@ -26,34 +82,17 @@ Mini dashboard surfacing Pantheon Terminus operations for the workspace's site:
 
 ## Requirements
 
-- VS Code 1.85+
+- VS Code 1.85+ on macOS or Linux
 - [Terminus](https://docs.pantheon.io/terminus/install) on your shell `PATH`,
   logged in (`terminus auth:login --machine-token=…`)
-- The workspace folder is the site's git repo (for Git-mode commit lists)
+- The workspace folder is the site's git repo, with `pantheon.yml` (or
+  `pantheon.upstream.yml`) at its root
 
-## Install from this repo
-
-VS Code cannot install an extension directly from a git URL. Two options:
-
-**1. Clone into the extensions folder** (no build step — the extension is plain
-JavaScript):
-
-```bash
-git clone https://github.com/EarthmanWeb/vscode-pantheon-dashboard.git \
-  ~/.vscode/extensions/earthmanweb.pantheon-dashboard-0.1.0
-```
-
-Reload VS Code. The extension activates automatically — and only — in
-workspaces with a `pantheon.yml` (or `pantheon.upstream.yml`) at a folder
-root. The cloud icon appears in the Activity Bar (drag the view into the
-bottom Panel or secondary sidebar to move it); the status bar shows
-`☁ Pantheon`, and `Pantheon: Open Pantheon Dashboard` focuses the view.
-
-**2. Package a VSIX:**
+## Developer install (VSIX)
 
 ```bash
 npx @vscode/vsce package
-code --install-extension pantheon-dashboard-0.1.0.vsix
+code --install-extension pantheon-dashboard-<version>.vsix
 ```
 
 ## Settings
