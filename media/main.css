@@ -18,12 +18,11 @@ header h1 {
   font-size: 1.3em;
 }
 
+/* Full-length email: drops to its own row when it doesn't fit beside the
+   site dropdown; break-word (not anywhere) keeps that wrap-first behavior. */
 .who {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  flex: 1 1 auto;
+  overflow-wrap: break-word;
   opacity: 0.7;
   font-size: 0.85em;
 }
