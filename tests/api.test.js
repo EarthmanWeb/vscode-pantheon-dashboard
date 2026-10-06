@@ -29,7 +29,10 @@ test('session › Configured site setting wins over folder matching (matchSite h
 
 test('session › Site resolved from the workspace folder name: acme-site-master -> acme-site', () => {
   // Then the selected site is "acme-site"
-  assert.equal(matchSite(['acme-site', 'other'], 'acme-site-master'), 'acme-site');
+  assert.equal(
+    matchSite(['acme-site', 'other'], 'acme-site-master'),
+    'acme-site'
+  );
 });
 
 test('session › Site resolved from the workspace folder name: solo site always wins', () => {
@@ -46,7 +49,10 @@ test('session › Multidev environments populate the dev selector (api returns s
   const api = new PantheonApi('/tmp', {
     run: async (bin, args) => {
       assert.deepEqual(args.slice(0, 2), ['multidev:list', 'site']);
-      return JSON.stringify({ themes: { id: 'themes' }, alpha: { id: 'alpha' } });
+      return JSON.stringify({
+        themes: { id: 'themes' },
+        alpha: { id: 'alpha' }
+      });
     }
   });
   // Then the dev selector lists "dev", "alpha", "themes" in that order
@@ -372,12 +378,18 @@ test('deploy › Test deploy then sync database and files (cloneContent called a
     }
   });
   await api.deploy('site', 'test', 'Release');
-  await api.cloneContent('site', 'live', 'test', { db: true, files: true, cc: true });
+  await api.cloneContent('site', 'live', 'test', {
+    db: true,
+    files: true,
+    cc: true
+  });
   // Then database and files are cloned from "live" to "test" with caches cleared
   assert.ok(calls.some((c) => c.startsWith('env:deploy site.test')));
   assert.ok(
     calls.some(
-      (c) => c.startsWith('env:clone-content site.live test --yes') && c.includes('--cc')
+      (c) =>
+        c.startsWith('env:clone-content site.live test --yes') &&
+        c.includes('--cc')
     )
   );
 });
@@ -386,9 +398,12 @@ test('deploy › Test deploy then sync database and files (cloneContent called a
 
 test('local-commits › Unpushed commits are listed (fetches origin then parses git log)', async () => {
   const calls = [];
-  const line = ['abc123', 'Terry', '2026-10-02T10:00:00-07:00', 'Fix header'].join(
-    '\x1f'
-  );
+  const line = [
+    'abc123',
+    'Terry',
+    '2026-10-02T10:00:00-07:00',
+    'Fix header'
+  ].join('\x1f');
   const api = new PantheonApi('/tmp', {
     run: async (bin, args) => {
       calls.push([bin, ...args.slice(0, 2)]);
@@ -477,7 +492,11 @@ test('local-commits › Push then sync database and clear caches (cloneContent a
     }
   });
   await api.push('site', 'dev', 'master');
-  await api.cloneContent('site', 'live', 'dev', { db: true, files: false, cc: true });
+  await api.cloneContent('site', 'live', 'dev', {
+    db: true,
+    files: false,
+    cc: true
+  });
   // Then the database is cloned from "live" to "dev" with caches cleared
   assert.ok(
     calls.some(
@@ -599,7 +618,11 @@ test('content-sync › Syncing runs the matching clone: Database and Clear cache
     }
   });
   // Then the host clones from "live" to "test" with flags "--db-only --cc"
-  await api.cloneContent('site', 'live', 'test', { db: true, files: false, cc: true });
+  await api.cloneContent('site', 'live', 'test', {
+    db: true,
+    files: false,
+    cc: true
+  });
   assert.deepEqual(calls[0].split(' '), [
     'env:clone-content',
     'site.live',
@@ -653,7 +676,11 @@ test('content-sync › cloneContent db+files+cc: no --db-only/--files-only, incl
       return args[0] === 'workflow:list' ? '{}' : '';
     }
   });
-  await api.cloneContent('site', 'dev', 'test', { db: true, files: true, cc: true });
+  await api.cloneContent('site', 'dev', 'test', {
+    db: true,
+    files: true,
+    cc: true
+  });
   assert.deepEqual(calls[0].split(' '), [
     'env:clone-content',
     'site.dev',

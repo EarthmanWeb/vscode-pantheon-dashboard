@@ -56,7 +56,9 @@ const makeFakeApi = (overrides = {}) => {
 };
 
 const makeProvider = (api) => {
-  const provider = new DashboardViewProvider({ extensionUri: { fsPath: '/ext' } });
+  const provider = new DashboardViewProvider({
+    extensionUri: { fsPath: '/ext' }
+  });
   provider.api = api;
   return provider;
 };
@@ -149,7 +151,10 @@ test('session › Terminus failure during init is shown (non-auth error rethrows
 
 test('session › Multidev environments populate the dev selector (multidevs route)', async () => {
   const provider = makeProvider(makeFakeApi());
-  const result = await provider.handle({ type: 'multidevs', site: 'example-site' });
+  const result = await provider.handle({
+    type: 'multidevs',
+    site: 'example-site'
+  });
   assert.deepEqual(result, { type: 'multidevs', envs: ['alpha', 'themes'] });
 });
 
@@ -231,7 +236,11 @@ test('connection-mode › diffstat route', async () => {
     diffstat: async () => [{ file: 'wp-content/a.php', status: 'M' }]
   });
   const provider = makeProvider(api);
-  const result = await provider.handle({ type: 'diffstat', site: 'site', env: 'dev' });
+  const result = await provider.handle({
+    type: 'diffstat',
+    site: 'site',
+    env: 'dev'
+  });
   assert.deepEqual(result, {
     type: 'diffstat',
     files: [{ file: 'wp-content/a.php', status: 'M' }]
@@ -269,7 +278,11 @@ test('local-commits › unpushed route maps dev -> master branch, passes fetch t
     fetch: false
   });
   assert.equal(result.branch, 'master');
-  assert.deepEqual(api.calls[0], ['unpushedCommits', 'master', { fetch: false }]);
+  assert.deepEqual(api.calls[0], [
+    'unpushedCommits',
+    'master',
+    { fetch: false }
+  ]);
 });
 
 test('local-commits › unpushed route maps a multidev to its own branch name', async () => {
@@ -283,7 +296,11 @@ test('local-commits › unpushed route maps a multidev to its own branch name', 
   });
   // A multidev tracks the branch of the same name.
   assert.equal(result.branch, 'themes');
-  assert.deepEqual(api.calls[0], ['unpushedCommits', 'themes', { fetch: true }]);
+  assert.deepEqual(api.calls[0], [
+    'unpushedCommits',
+    'themes',
+    { fetch: true }
+  ]);
 });
 
 test('local-commits › Push only (no clone, no clearCache, order push -> unpushedCommits)', async () => {
@@ -361,7 +378,9 @@ test('local-commits › Push failure is shown in the card (route posts error)', 
     env: 'dev',
     branch: 'master'
   });
-  assert.deepEqual(posted, [{ type: 'error', requestId: 'r1', message: 'rejected' }]);
+  assert.deepEqual(posted, [
+    { type: 'error', requestId: 'r1', message: 'rejected' }
+  ]);
 });
 
 // ── dashboard-deploy.feature ──
@@ -371,7 +390,11 @@ test('deploy › pending route', async () => {
     pendingCommits: async () => [{ hash: '1', message: 'pending' }]
   });
   const provider = makeProvider(api);
-  const result = await provider.handle({ type: 'pending', site: 'site', env: 'test' });
+  const result = await provider.handle({
+    type: 'pending',
+    site: 'site',
+    env: 'test'
+  });
   assert.deepEqual(result, {
     type: 'pending',
     env: 'test',
@@ -425,7 +448,13 @@ test('deploy › Deploy with clear caches only (live, cc only)', async () => {
     cc: true
   });
   // deploy with { cc: true } since msg.sync is falsy
-  assert.deepEqual(api.calls[0], ['deploy', 'site', 'live', 'Release', { cc: true }]);
+  assert.deepEqual(api.calls[0], [
+    'deploy',
+    'site',
+    'live',
+    'Release',
+    { cc: true }
+  ]);
   assert.ok(!api.calls.some((c) => c[0] === 'cloneContent'));
 });
 
@@ -445,7 +474,13 @@ test('deploy › Test deploy then sync database and files (deploy cc:false THEN 
     ['deploy', 'cloneContent', 'pendingCommits']
   );
   // deploy({ cc: msg.cc && !msg.sync }) -> cc is false because sync is set
-  assert.deepEqual(api.calls[0], ['deploy', 'site', 'test', 'Release', { cc: false }]);
+  assert.deepEqual(api.calls[0], [
+    'deploy',
+    'site',
+    'test',
+    'Release',
+    { cc: false }
+  ]);
   // cloneContent carries cc: msg.cc (true) regardless of sync.cc field
   assert.deepEqual(api.calls[1], [
     'cloneContent',
@@ -467,7 +502,11 @@ test('deploy › response type "pending" with fresh commits after deploy', async
     env: 'live',
     note: 'Release'
   });
-  assert.deepEqual(result, { type: 'pending', env: 'live', commits: [{ hash: 'new' }] });
+  assert.deepEqual(result, {
+    type: 'pending',
+    env: 'live',
+    commits: [{ hash: 'new' }]
+  });
 });
 
 test('deploy › Deploy failure propagates as an error response', async () => {
@@ -487,7 +526,11 @@ test('deploy › Deploy failure propagates as an error response', async () => {
     note: 'Release'
   });
   assert.deepEqual(posted, [
-    { type: 'error', requestId: 'r2', message: 'Pantheon workflow failed: Deploy code' }
+    {
+      type: 'error',
+      requestId: 'r2',
+      message: 'Pantheon workflow failed: Deploy code'
+    }
   ]);
 });
 
@@ -496,7 +539,11 @@ test('deploy › Deploy failure propagates as an error response', async () => {
 test('clear-caches › clearCache route calls api.clearCache and returns cacheCleared', async () => {
   const api = makeFakeApi();
   const provider = makeProvider(api);
-  const result = await provider.handle({ type: 'clearCache', site: 'site', env: 'test' });
+  const result = await provider.handle({
+    type: 'clearCache',
+    site: 'site',
+    env: 'test'
+  });
   assert.deepEqual(api.calls[0], ['clearCache', 'site', 'test']);
   assert.deepEqual(result, { type: 'cacheCleared' });
 });
@@ -516,7 +563,9 @@ test('clear-caches › failure propagates as an error response', async () => {
     site: 'site',
     env: 'test'
   });
-  assert.deepEqual(posted, [{ type: 'error', requestId: 'r3', message: 'denied' }]);
+  assert.deepEqual(posted, [
+    { type: 'error', requestId: 'r3', message: 'denied' }
+  ]);
 });
 
 // ── dashboard-content-sync.feature ──
@@ -561,7 +610,9 @@ test('content-sync › Sync failure propagates as an error response', async () =
     db: true,
     files: false
   });
-  assert.deepEqual(posted, [{ type: 'error', requestId: 'r4', message: 'clone failed' }]);
+  assert.deepEqual(posted, [
+    { type: 'error', requestId: 'r4', message: 'clone failed' }
+  ]);
 });
 
 // ── All routes: no native dialogs remain ──
@@ -592,8 +643,18 @@ test('all routes › vscode showWarningMessage is never called by the router', a
     confirmed: true
   });
   await provider.handle({ type: 'diffstat', site: 'site', env: 'dev' });
-  await provider.handle({ type: 'commit', site: 'site', env: 'dev', message: 'msg' });
-  await provider.handle({ type: 'unpushed', site: 'site', env: 'dev', fetch: true });
+  await provider.handle({
+    type: 'commit',
+    site: 'site',
+    env: 'dev',
+    message: 'msg'
+  });
+  await provider.handle({
+    type: 'unpushed',
+    site: 'site',
+    env: 'dev',
+    fetch: true
+  });
   await provider.handle({
     type: 'syncContent',
     site: 'site',
@@ -603,9 +664,19 @@ test('all routes › vscode showWarningMessage is never called by the router', a
     files: false
   });
   await provider.handle({ type: 'clearCache', site: 'site', env: 'test' });
-  await provider.handle({ type: 'push', site: 'site', env: 'dev', branch: 'master' });
+  await provider.handle({
+    type: 'push',
+    site: 'site',
+    env: 'dev',
+    branch: 'master'
+  });
   await provider.handle({ type: 'pending', site: 'site', env: 'test' });
-  await provider.handle({ type: 'deploy', site: 'site', env: 'test', note: 'Release' });
+  await provider.handle({
+    type: 'deploy',
+    site: 'site',
+    env: 'test',
+    note: 'Release'
+  });
 
   // Then no native confirm dialog is shown anywhere in the router
   assert.equal(vscodeStub.getCalls().showWarningMessage.length, 0);

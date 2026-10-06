@@ -66,7 +66,10 @@ class DashboardViewProvider {
         return { type: 'init', email, site, sites };
       }
       case 'multidevs':
-        return { type: 'multidevs', envs: await this.api.listMultidevs(msg.site) };
+        return {
+          type: 'multidevs',
+          envs: await this.api.listMultidevs(msg.site)
+        };
       case 'devInfo':
         return {
           type: 'devInfo',
@@ -188,8 +191,7 @@ class DashboardViewProvider {
       .getConfiguration('pantheonDashboard')
       .get('site');
     const site =
-      configured ||
-      matchSite(sites, vscode.workspace.workspaceFolders[0].name);
+      configured || matchSite(sites, vscode.workspace.workspaceFolders[0].name);
     return { site, sites };
   }
 
@@ -197,7 +199,9 @@ class DashboardViewProvider {
     const webview = this.webview;
     const nonce = crypto.randomBytes(16).toString('base64');
     const asset = (file) =>
-      webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'media', file));
+      webview.asWebviewUri(
+        vscode.Uri.joinPath(this.extensionUri, 'media', file)
+      );
     return `<!DOCTYPE html>
 <html lang="en">
 <head>

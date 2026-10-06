@@ -221,7 +221,9 @@
         <div class="body" id="${env}-body"></div>
       </section>`;
     const siteOptions = [
-      state.site ? '' : '<option value="" selected disabled>Select a site…</option>',
+      state.site
+        ? ''
+        : '<option value="" selected disabled>Select a site…</option>',
       ...state.sites.map(
         (s) =>
           `<option value="${esc(s)}"${s === state.site ? ' selected' : ''}>${esc(s)}</option>`
@@ -353,7 +355,11 @@
     byId('dev-commit').textContent = `Commit to ${env}`;
     setStatus('dev', spin(`Checking ${env} connection mode…`));
     try {
-      const { mode } = await request({ type: 'devInfo', site: state.site, env });
+      const { mode } = await request({
+        type: 'devInfo',
+        site: state.site,
+        env
+      });
       applyMode(mode);
       if (mode === 'sftp') {
         setStatus('dev', spin('Fetching uncommitted changes on the server…'));
@@ -530,7 +536,10 @@
     setStatus(key, spin(`Clearing caches on ${env}…`));
     try {
       await request({ type: 'clearCache', site: state.site, env });
-      setStatus(key, `<div class="statusblock">Caches cleared on ${esc(env)}.</div>`);
+      setStatus(
+        key,
+        `<div class="statusblock">Caches cleared on ${esc(env)}.</div>`
+      );
     } catch (err) {
       setStatus(key, fail(err));
     }
@@ -757,7 +766,10 @@
         branch,
         count,
         cc: res.cc,
-        sync: res.db || res.files ? { from: res.from, db: res.db, files: res.files } : null
+        sync:
+          res.db || res.files
+            ? { from: res.from, db: res.db, files: res.files }
+            : null
       });
       renderUnpushed(result.branch, result.commits);
       setStatus('dev', '');

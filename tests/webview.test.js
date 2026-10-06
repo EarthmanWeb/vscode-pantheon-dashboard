@@ -58,7 +58,12 @@ test('session › No resolvable site prompts for selection', async () => {
   const initMsg = await h.nextRequest('init');
   h.consume(initMsg);
   // Given no site could be resolved
-  h.reply(initMsg, { type: 'init', email: 'user@example.test', site: null, sites: ['a-site', 'b-site'] });
+  h.reply(initMsg, {
+    type: 'init',
+    email: 'user@example.test',
+    site: null,
+    sites: ['a-site', 'b-site']
+  });
   await new Promise((resolve) => setImmediate(resolve));
 
   // Then every card shows "Select a site above."
@@ -70,7 +75,10 @@ test('session › No resolvable site prompts for selection', async () => {
 test('session › Switching site refreshes every card', async () => {
   const h = load();
   // Given the dashboard is showing site "example-site"
-  await boot(h, { site: 'example-site', sites: ['example-site', 'other-site'] });
+  await boot(h, {
+    site: 'example-site',
+    sites: ['example-site', 'other-site']
+  });
 
   // When the user selects site "other-site"
   const select = h.$('#site-select');
@@ -92,9 +100,21 @@ test('session › Switching site refreshes every card', async () => {
   h.consume(unpushedMsg);
   h.reply(unpushedMsg, { type: 'unpushed', branch: 'master', commits: [] });
 
-  const pendingTestMsg = await h.waitFor((m) => m.type === 'pending' && m.env === 'test' && m.site === 'other-site' && !m._consumed);
+  const pendingTestMsg = await h.waitFor(
+    (m) =>
+      m.type === 'pending' &&
+      m.env === 'test' &&
+      m.site === 'other-site' &&
+      !m._consumed
+  );
   h.consume(pendingTestMsg);
-  const pendingLiveMsg = await h.waitFor((m) => m.type === 'pending' && m.env === 'live' && m.site === 'other-site' && !m._consumed);
+  const pendingLiveMsg = await h.waitFor(
+    (m) =>
+      m.type === 'pending' &&
+      m.env === 'live' &&
+      m.site === 'other-site' &&
+      !m._consumed
+  );
   h.consume(pendingLiveMsg);
   h.reply(pendingTestMsg, { type: 'pending', env: 'test', commits: [] });
   h.reply(pendingLiveMsg, { type: 'pending', env: 'live', commits: [] });
@@ -108,7 +128,9 @@ test('session › Multidev environments populate the dev selector', async () => 
   // Then the dev selector lists "dev", "alpha", "themes" in that order
   // (api.listMultidevs sorts — tested in api.test.js; here we assert the
   // webview prepends "dev" to whatever order the host returned).
-  const options = [...h.$('#dev-env').querySelectorAll('option')].map((o) => o.value);
+  const options = [...h.$('#dev-env').querySelectorAll('option')].map(
+    (o) => o.value
+  );
   assert.deepEqual(options, ['dev', 'themes', 'alpha']);
 });
 
@@ -135,7 +157,9 @@ test('connection-mode › Current mode is shown', async () => {
   // Then the mode badge reads "SFTP"
   assert.equal(h.text('#dev-badge'), 'SFTP');
   // Then the "SFTP" toggle button is active
-  assert.ok(h.$('#dev-toggle button[data-mode="sftp"]').classList.contains('active'));
+  assert.ok(
+    h.$('#dev-toggle button[data-mode="sftp"]').classList.contains('active')
+  );
   // Then the commit box is visible
   assert.equal(h.$('#dev-commitbox').hidden, false);
 });
@@ -297,7 +321,9 @@ test('connection-mode › Uncommitted SFTP changes are listed', async () => {
   // When the dev card loads in SFTP mode
   await boot(h, {
     devMode: 'sftp',
-    diffstatFiles: [{ file: 'wp-content/a.php', status: 'M', additions: 2, deletions: 1 }]
+    diffstatFiles: [
+      { file: 'wp-content/a.php', status: 'M', additions: 2, deletions: 1 }
+    ]
   });
 
   // Then "wp-content/a.php" is listed with its status, additions and deletions
@@ -342,9 +368,13 @@ test('connection-mode › Committing SFTP changes', async () => {
   h.reply(commitMsg, { type: 'diffstat', files: [] });
 
   // Then the test and live pending lists reload
-  const pendingTestMsg = await h.waitFor((m) => m.type === 'pending' && m.env === 'test' && !m._consumed);
+  const pendingTestMsg = await h.waitFor(
+    (m) => m.type === 'pending' && m.env === 'test' && !m._consumed
+  );
   h.consume(pendingTestMsg);
-  const pendingLiveMsg = await h.waitFor((m) => m.type === 'pending' && m.env === 'live' && !m._consumed);
+  const pendingLiveMsg = await h.waitFor(
+    (m) => m.type === 'pending' && m.env === 'live' && !m._consumed
+  );
   h.consume(pendingLiveMsg);
   h.reply(pendingTestMsg, { type: 'pending', env: 'test', commits: [] });
   h.reply(pendingLiveMsg, { type: 'pending', env: 'live', commits: [] });
@@ -414,7 +444,12 @@ test('local-commits › Unpushed commits are listed with simplified wording', as
     devMode: 'git',
     unpushedBranch: 'master',
     unpushedCommits: [
-      { hash: 'abc12345', author: 'Terry', datetime: '2026-10-02T10:00:00-07:00', message: 'Fix header' }
+      {
+        hash: 'abc12345',
+        author: 'Terry',
+        datetime: '2026-10-02T10:00:00-07:00',
+        message: 'Fix header'
+      }
     ]
   });
 
@@ -432,10 +467,16 @@ test('local-commits › Unpushed commits are listed with simplified wording', as
 test('local-commits › Clean branch shows the matching state', async () => {
   const h = load();
   // Given local branch "master" matches origin
-  await boot(h, { devMode: 'git', unpushedBranch: 'master', unpushedCommits: [] });
+  await boot(h, {
+    devMode: 'git',
+    unpushedBranch: 'master',
+    unpushedCommits: []
+  });
 
   // Then the status reads "Status: Local master matches origin/master."
-  assert.ok(h.text('#dev-body').includes('Status: Local master matches origin/master.'));
+  assert.ok(
+    h.text('#dev-body').includes('Status: Local master matches origin/master.')
+  );
   // Then the "Sync to Dev" button is disabled
   assert.equal(h.$('#dev-sync').disabled, true);
 });
@@ -467,7 +508,12 @@ test('local-commits › Refresh fetches origin first (webview does not pass fetc
   const h = load();
   const initMsg = await h.nextRequest('init');
   h.consume(initMsg);
-  h.reply(initMsg, { type: 'init', email: 'user@example.test', site: 'example-site', sites: ['example-site'] });
+  h.reply(initMsg, {
+    type: 'init',
+    email: 'user@example.test',
+    site: 'example-site',
+    sites: ['example-site']
+  });
   const multidevsMsg = await h.nextRequest('multidevs');
   h.consume(multidevsMsg);
   h.reply(multidevsMsg, { type: 'multidevs', envs: [] });
@@ -487,7 +533,11 @@ test('local-commits › Refresh fetches origin first (webview does not pass fetc
 test('local-commits › Background check finds a new local commit without fetching', async () => {
   const h = load();
   // Given the dev card shows 0 unpushed commits
-  await boot(h, { devMode: 'git', unpushedBranch: 'master', unpushedCommits: [] });
+  await boot(h, {
+    devMode: 'git',
+    unpushedBranch: 'master',
+    unpushedCommits: []
+  });
 
   // When a commit is made locally, and 5 seconds pass
   h.tick(5000);
@@ -498,7 +548,14 @@ test('local-commits › Background check finds a new local commit without fetchi
   h.reply(pollMsg, {
     type: 'unpushed',
     branch: 'master',
-    commits: [{ hash: 'deadbeef', author: 'Terry', datetime: '2026-10-02T10:00:00-07:00', message: 'New work' }]
+    commits: [
+      {
+        hash: 'deadbeef',
+        author: 'Terry',
+        datetime: '2026-10-02T10:00:00-07:00',
+        message: 'New work'
+      }
+    ]
   });
   await new Promise((resolve) => setImmediate(resolve));
 
@@ -512,7 +569,14 @@ test('local-commits › Background check leaves an unchanged list alone', async 
   await boot(h, {
     devMode: 'git',
     unpushedBranch: 'master',
-    unpushedCommits: [{ hash: 'abc123', author: 'Terry', datetime: '2026-10-02T10:00:00-07:00', message: 'Fix' }]
+    unpushedCommits: [
+      {
+        hash: 'abc123',
+        author: 'Terry',
+        datetime: '2026-10-02T10:00:00-07:00',
+        message: 'Fix'
+      }
+    ]
   });
   const bodyBefore = h.$('#dev-body').innerHTML;
 
@@ -523,7 +587,14 @@ test('local-commits › Background check leaves an unchanged list alone', async 
   h.reply(pollMsg, {
     type: 'unpushed',
     branch: 'master',
-    commits: [{ hash: 'abc123', author: 'Terry', datetime: '2026-10-02T10:00:00-07:00', message: 'Fix' }]
+    commits: [
+      {
+        hash: 'abc123',
+        author: 'Terry',
+        datetime: '2026-10-02T10:00:00-07:00',
+        message: 'Fix'
+      }
+    ]
   });
   await new Promise((resolve) => setImmediate(resolve));
 
@@ -584,8 +655,18 @@ test('local-commits › Push asks inline before running', async () => {
     devMode: 'git',
     unpushedBranch: 'master',
     unpushedCommits: [
-      { hash: 'a1', author: 'Terry', datetime: '2026-10-02T10:00:00-07:00', message: 'one' },
-      { hash: 'a2', author: 'Terry', datetime: '2026-10-02T10:01:00-07:00', message: 'two' }
+      {
+        hash: 'a1',
+        author: 'Terry',
+        datetime: '2026-10-02T10:00:00-07:00',
+        message: 'one'
+      },
+      {
+        hash: 'a2',
+        author: 'Terry',
+        datetime: '2026-10-02T10:01:00-07:00',
+        message: 'two'
+      }
     ]
   });
 
@@ -616,7 +697,14 @@ test('local-commits › Push source list excludes the target', async () => {
     multidevs: ['themes'],
     devMode: 'git',
     unpushedBranch: 'master',
-    unpushedCommits: [{ hash: 'a1', author: 'Terry', datetime: '2026-10-02T10:00:00-07:00', message: 'one' }]
+    unpushedCommits: [
+      {
+        hash: 'a1',
+        author: 'Terry',
+        datetime: '2026-10-02T10:00:00-07:00',
+        message: 'one'
+      }
+    ]
   });
 
   // When the push confirm opens for "dev"
@@ -624,7 +712,9 @@ test('local-commits › Push source list excludes the target', async () => {
   await new Promise((resolve) => setImmediate(resolve));
 
   // Then the "Sync from" list is "test", "live", "themes"
-  const options = [...h.$('#dev-confirm-from').querySelectorAll('option')].map((o) => o.value);
+  const options = [...h.$('#dev-confirm-from').querySelectorAll('option')].map(
+    (o) => o.value
+  );
   assert.deepEqual(options, ['test', 'live', 'themes']);
 });
 
@@ -633,7 +723,14 @@ test('local-commits › Cancelling the push', async () => {
   await boot(h, {
     devMode: 'git',
     unpushedBranch: 'master',
-    unpushedCommits: [{ hash: 'a1', author: 'Terry', datetime: '2026-10-02T10:00:00-07:00', message: 'one' }]
+    unpushedCommits: [
+      {
+        hash: 'a1',
+        author: 'Terry',
+        datetime: '2026-10-02T10:00:00-07:00',
+        message: 'one'
+      }
+    ]
   });
 
   h.click('#dev-sync');
@@ -656,7 +753,14 @@ test('local-commits › Push only', async () => {
   await boot(h, {
     devMode: 'git',
     unpushedBranch: 'master',
-    unpushedCommits: [{ hash: 'a1', author: 'Terry', datetime: '2026-10-02T10:00:00-07:00', message: 'one' }]
+    unpushedCommits: [
+      {
+        hash: 'a1',
+        author: 'Terry',
+        datetime: '2026-10-02T10:00:00-07:00',
+        message: 'one'
+      }
+    ]
   });
 
   h.click('#dev-sync');
@@ -680,9 +784,13 @@ test('local-commits › Push only', async () => {
   h.reply(pushMsg, { type: 'unpushed', branch: 'master', commits: [] });
 
   // Then the test and live pending lists reload
-  const pendingTestMsg = await h.waitFor((m) => m.type === 'pending' && m.env === 'test' && !m._consumed);
+  const pendingTestMsg = await h.waitFor(
+    (m) => m.type === 'pending' && m.env === 'test' && !m._consumed
+  );
   h.consume(pendingTestMsg);
-  const pendingLiveMsg = await h.waitFor((m) => m.type === 'pending' && m.env === 'live' && !m._consumed);
+  const pendingLiveMsg = await h.waitFor(
+    (m) => m.type === 'pending' && m.env === 'live' && !m._consumed
+  );
   h.consume(pendingLiveMsg);
   h.reply(pendingTestMsg, { type: 'pending', env: 'test', commits: [] });
   h.reply(pendingLiveMsg, { type: 'pending', env: 'live', commits: [] });
@@ -694,7 +802,14 @@ test('local-commits › Push then sync database and clear caches', async () => {
     multidevs: [],
     devMode: 'git',
     unpushedBranch: 'master',
-    unpushedCommits: [{ hash: 'a1', author: 'Terry', datetime: '2026-10-02T10:00:00-07:00', message: 'one' }]
+    unpushedCommits: [
+      {
+        hash: 'a1',
+        author: 'Terry',
+        datetime: '2026-10-02T10:00:00-07:00',
+        message: 'one'
+      }
+    ]
   });
 
   h.click('#dev-sync');
@@ -719,9 +834,13 @@ test('local-commits › Push then sync database and clear caches', async () => {
   assert.equal(pushMsg.cc, true);
 
   h.reply(pushMsg, { type: 'unpushed', branch: 'master', commits: [] });
-  const pendingTestMsg = await h.waitFor((m) => m.type === 'pending' && m.env === 'test' && !m._consumed);
+  const pendingTestMsg = await h.waitFor(
+    (m) => m.type === 'pending' && m.env === 'test' && !m._consumed
+  );
   h.consume(pendingTestMsg);
-  const pendingLiveMsg = await h.waitFor((m) => m.type === 'pending' && m.env === 'live' && !m._consumed);
+  const pendingLiveMsg = await h.waitFor(
+    (m) => m.type === 'pending' && m.env === 'live' && !m._consumed
+  );
   h.consume(pendingLiveMsg);
   h.reply(pendingTestMsg, { type: 'pending', env: 'test', commits: [] });
   h.reply(pendingLiveMsg, { type: 'pending', env: 'live', commits: [] });
@@ -732,7 +851,14 @@ test('local-commits › Push then clear caches only', async () => {
   await boot(h, {
     devMode: 'git',
     unpushedBranch: 'master',
-    unpushedCommits: [{ hash: 'a1', author: 'Terry', datetime: '2026-10-02T10:00:00-07:00', message: 'one' }]
+    unpushedCommits: [
+      {
+        hash: 'a1',
+        author: 'Terry',
+        datetime: '2026-10-02T10:00:00-07:00',
+        message: 'one'
+      }
+    ]
   });
 
   h.click('#dev-sync');
@@ -749,9 +875,13 @@ test('local-commits › Push then clear caches only', async () => {
   assert.equal(pushMsg.cc, true);
 
   h.reply(pushMsg, { type: 'unpushed', branch: 'master', commits: [] });
-  const pendingTestMsg = await h.waitFor((m) => m.type === 'pending' && m.env === 'test' && !m._consumed);
+  const pendingTestMsg = await h.waitFor(
+    (m) => m.type === 'pending' && m.env === 'test' && !m._consumed
+  );
   h.consume(pendingTestMsg);
-  const pendingLiveMsg = await h.waitFor((m) => m.type === 'pending' && m.env === 'live' && !m._consumed);
+  const pendingLiveMsg = await h.waitFor(
+    (m) => m.type === 'pending' && m.env === 'live' && !m._consumed
+  );
   h.consume(pendingLiveMsg);
   h.reply(pendingTestMsg, { type: 'pending', env: 'test', commits: [] });
   h.reply(pendingLiveMsg, { type: 'pending', env: 'live', commits: [] });
@@ -762,7 +892,14 @@ test('local-commits › Push failure is shown in the card', async () => {
   await boot(h, {
     devMode: 'git',
     unpushedBranch: 'master',
-    unpushedCommits: [{ hash: 'a1', author: 'Terry', datetime: '2026-10-02T10:00:00-07:00', message: 'one' }]
+    unpushedCommits: [
+      {
+        hash: 'a1',
+        author: 'Terry',
+        datetime: '2026-10-02T10:00:00-07:00',
+        message: 'one'
+      }
+    ]
   });
 
   h.click('#dev-sync');
@@ -787,7 +924,9 @@ test('deploy › Up-to-date environment', async () => {
   await boot(h, { pendingTest: [], pendingLive: [] });
 
   // Then the test card reads "Up to date with dev — nothing to deploy."
-  assert.ok(h.text('#test-body').includes('Up to date with dev — nothing to deploy.'));
+  assert.ok(
+    h.text('#test-body').includes('Up to date with dev — nothing to deploy.')
+  );
   // Then the badge reads "0 pending"
   assert.equal(h.text('#test-badge'), '0 pending');
 });
@@ -798,8 +937,18 @@ test('deploy › Deploy note is prefilled from pending commit messages', async (
   // When the test card loads
   await boot(h, {
     pendingTest: [
-      { hash: 'a1', author: 'Terry', datetime: '2026-10-02T10:00:00-07:00', message: 'Fix header' },
-      { hash: 'a2', author: 'Terry', datetime: '2026-10-02T11:00:00-07:00', message: 'Add footer' }
+      {
+        hash: 'a1',
+        author: 'Terry',
+        datetime: '2026-10-02T10:00:00-07:00',
+        message: 'Fix header'
+      },
+      {
+        hash: 'a2',
+        author: 'Terry',
+        datetime: '2026-10-02T11:00:00-07:00',
+        message: 'Add footer'
+      }
     ]
   });
 
@@ -812,14 +961,36 @@ test('deploy › Deploy note is prefilled from pending commit messages', async (
 test('deploy › Edited deploy note survives a pending list reload', async () => {
   const h = load();
   // Given 1 commit is pending for test and the note is "Release"
-  await boot(h, { pendingTest: [{ hash: 'a1', author: 'Terry', datetime: '2026-10-02T10:00:00-07:00', message: 'x' }] });
+  await boot(h, {
+    pendingTest: [
+      {
+        hash: 'a1',
+        author: 'Terry',
+        datetime: '2026-10-02T10:00:00-07:00',
+        message: 'x'
+      }
+    ]
+  });
   h.type('#test-note', 'Release');
 
   // When the test pending list reloads
   h.click('#refresh');
-  const pendingMsg = await h.waitFor((m) => m.type === 'pending' && m.env === 'test' && !m._consumed);
+  const pendingMsg = await h.waitFor(
+    (m) => m.type === 'pending' && m.env === 'test' && !m._consumed
+  );
   h.consume(pendingMsg);
-  h.reply(pendingMsg, { type: 'pending', env: 'test', commits: [{ hash: 'a2', author: 'Terry', datetime: '2026-10-02T11:00:00-07:00', message: 'y' }] });
+  h.reply(pendingMsg, {
+    type: 'pending',
+    env: 'test',
+    commits: [
+      {
+        hash: 'a2',
+        author: 'Terry',
+        datetime: '2026-10-02T11:00:00-07:00',
+        message: 'y'
+      }
+    ]
+  });
   await new Promise((resolve) => setImmediate(resolve));
 
   // Then the deploy note is still "Release"
@@ -829,7 +1000,16 @@ test('deploy › Edited deploy note survives a pending list reload', async () =>
 test('deploy › Clearing the deploy note', async () => {
   const h = load();
   // Given 1 commit is pending for test
-  await boot(h, { pendingTest: [{ hash: 'a1', author: 'Terry', datetime: '2026-10-02T10:00:00-07:00', message: 'x' }] });
+  await boot(h, {
+    pendingTest: [
+      {
+        hash: 'a1',
+        author: 'Terry',
+        datetime: '2026-10-02T10:00:00-07:00',
+        message: 'x'
+      }
+    ]
+  });
   assert.equal(h.$('#test-note').value, 'x');
 
   // When the user clicks the clear (X) button on the deploy note
@@ -845,7 +1025,14 @@ test('deploy › Deploy button requires a note and pending commits', async () =>
   const h = load();
   // Given 1 commit is pending for test
   await boot(h, {
-    pendingTest: [{ hash: 'a1', author: 'Terry', datetime: '2026-10-02T10:00:00-07:00', message: 'x' }]
+    pendingTest: [
+      {
+        hash: 'a1',
+        author: 'Terry',
+        datetime: '2026-10-02T10:00:00-07:00',
+        message: 'x'
+      }
+    ]
   });
 
   // And the deploy note is cleared
@@ -862,7 +1049,14 @@ test('deploy › Test deploy asks inline with sync options', async () => {
   const h = load();
   // Given 1 commit is pending for test and the note is "Release"
   await boot(h, {
-    pendingTest: [{ hash: 'a1', author: 'Terry', datetime: '2026-10-02T10:00:00-07:00', message: 'x' }]
+    pendingTest: [
+      {
+        hash: 'a1',
+        author: 'Terry',
+        datetime: '2026-10-02T10:00:00-07:00',
+        message: 'x'
+      }
+    ]
   });
   h.type('#test-note', 'Release');
 
@@ -887,7 +1081,14 @@ test('deploy › Live deploy asks inline with clear caches only', async () => {
   const h = load();
   // Given 1 commit is pending for live and the note is "Release"
   await boot(h, {
-    pendingLive: [{ hash: 'a1', author: 'Terry', datetime: '2026-10-02T10:00:00-07:00', message: 'x' }]
+    pendingLive: [
+      {
+        hash: 'a1',
+        author: 'Terry',
+        datetime: '2026-10-02T10:00:00-07:00',
+        message: 'x'
+      }
+    ]
   });
   h.type('#live-note', 'Release');
 
@@ -911,7 +1112,14 @@ test('deploy › Cancelling a deploy', async () => {
   const h = load();
   // Given the test deploy confirm is open
   await boot(h, {
-    pendingTest: [{ hash: 'a1', author: 'Terry', datetime: '2026-10-02T10:00:00-07:00', message: 'x' }]
+    pendingTest: [
+      {
+        hash: 'a1',
+        author: 'Terry',
+        datetime: '2026-10-02T10:00:00-07:00',
+        message: 'x'
+      }
+    ]
   });
   h.type('#test-note', 'Release');
   h.click('#test-deploy');
@@ -931,7 +1139,14 @@ test('deploy › Deploy only', async () => {
   const h = load();
   // Given the test deploy confirm is open with nothing ticked
   await boot(h, {
-    pendingTest: [{ hash: 'a1', author: 'Terry', datetime: '2026-10-02T10:00:00-07:00', message: 'x' }]
+    pendingTest: [
+      {
+        hash: 'a1',
+        author: 'Terry',
+        datetime: '2026-10-02T10:00:00-07:00',
+        message: 'x'
+      }
+    ]
   });
   h.type('#test-note', 'Release');
   h.click('#test-deploy');
@@ -951,7 +1166,9 @@ test('deploy › Deploy only', async () => {
   h.reply(deployMsg, { type: 'pending', commits: [] });
 
   // Then the live pending list reloads
-  const pendingLiveMsg = await h.waitFor((m) => m.type === 'pending' && m.env === 'live' && !m._consumed);
+  const pendingLiveMsg = await h.waitFor(
+    (m) => m.type === 'pending' && m.env === 'live' && !m._consumed
+  );
   h.consume(pendingLiveMsg);
   h.reply(pendingLiveMsg, { type: 'pending', env: 'live', commits: [] });
   await new Promise((resolve) => setImmediate(resolve));
@@ -963,9 +1180,20 @@ test('deploy › Deploy only', async () => {
 test('deploy › Deploy locks the note and button until the workflows complete', async () => {
   const h = load();
   const locked = () =>
-    ['#test-note', '#test-note-clear', '#test-deploy'].map((sel) => h.$(sel).disabled);
+    ['#test-note', '#test-note-clear', '#test-deploy'].map(
+      (sel) => h.$(sel).disabled
+    );
   // Given 1 commit is pending for test and the note is "Release"
-  await boot(h, { pendingTest: [{ hash: 'a1', author: 'Terry', datetime: '2026-10-02T10:00:00-07:00', message: 'x' }] });
+  await boot(h, {
+    pendingTest: [
+      {
+        hash: 'a1',
+        author: 'Terry',
+        datetime: '2026-10-02T10:00:00-07:00',
+        message: 'x'
+      }
+    ]
+  });
   h.type('#test-note', 'Release');
 
   // When the user clicks "Deploy Dev → Test"
@@ -982,8 +1210,20 @@ test('deploy › Deploy locks the note and button until the workflows complete',
   assert.deepEqual(locked(), [true, true, true]);
 
   // When the deploy workflows complete
-  h.reply(deployMsg, { type: 'pending', commits: [{ hash: 'a2', author: 'Terry', datetime: '2026-10-02T11:00:00-07:00', message: 'y' }] });
-  const pendingLiveMsg = await h.waitFor((m) => m.type === 'pending' && m.env === 'live' && !m._consumed);
+  h.reply(deployMsg, {
+    type: 'pending',
+    commits: [
+      {
+        hash: 'a2',
+        author: 'Terry',
+        datetime: '2026-10-02T11:00:00-07:00',
+        message: 'y'
+      }
+    ]
+  });
+  const pendingLiveMsg = await h.waitFor(
+    (m) => m.type === 'pending' && m.env === 'live' && !m._consumed
+  );
   h.consume(pendingLiveMsg);
   h.reply(pendingLiveMsg, { type: 'pending', env: 'live', commits: [] });
   await new Promise((resolve) => setImmediate(resolve));
@@ -995,7 +1235,16 @@ test('deploy › Deploy locks the note and button until the workflows complete',
 test('deploy › Cancelling a deploy unlocks the note', async () => {
   const h = load();
   // Given the test deploy confirm is open
-  await boot(h, { pendingTest: [{ hash: 'a1', author: 'Terry', datetime: '2026-10-02T10:00:00-07:00', message: 'x' }] });
+  await boot(h, {
+    pendingTest: [
+      {
+        hash: 'a1',
+        author: 'Terry',
+        datetime: '2026-10-02T10:00:00-07:00',
+        message: 'x'
+      }
+    ]
+  });
   h.type('#test-note', 'Release');
   h.click('#test-deploy');
   await new Promise((resolve) => setImmediate(resolve));
@@ -1014,7 +1263,14 @@ test('deploy › Deploy with clear caches only', async () => {
   const h = load();
   // Given the live deploy confirm is open with "Clear caches afterwards" ticked
   await boot(h, {
-    pendingLive: [{ hash: 'a1', author: 'Terry', datetime: '2026-10-02T10:00:00-07:00', message: 'x' }]
+    pendingLive: [
+      {
+        hash: 'a1',
+        author: 'Terry',
+        datetime: '2026-10-02T10:00:00-07:00',
+        message: 'x'
+      }
+    ]
   });
   h.type('#live-note', 'Release');
   h.click('#live-deploy');
@@ -1037,7 +1293,14 @@ test('deploy › Test deploy then sync database and files', async () => {
   const h = load();
   await boot(h, {
     multidevs: [],
-    pendingTest: [{ hash: 'a1', author: 'Terry', datetime: '2026-10-02T10:00:00-07:00', message: 'x' }]
+    pendingTest: [
+      {
+        hash: 'a1',
+        author: 'Terry',
+        datetime: '2026-10-02T10:00:00-07:00',
+        message: 'x'
+      }
+    ]
   });
   h.type('#test-note', 'Release');
   h.click('#test-deploy');
@@ -1065,7 +1328,9 @@ test('deploy › Test deploy then sync database and files', async () => {
   assert.equal(deployMsg.cc, true);
 
   h.reply(deployMsg, { type: 'pending', commits: [] });
-  const pendingLiveMsg = await h.waitFor((m) => m.type === 'pending' && m.env === 'live' && !m._consumed);
+  const pendingLiveMsg = await h.waitFor(
+    (m) => m.type === 'pending' && m.env === 'live' && !m._consumed
+  );
   h.consume(pendingLiveMsg);
   h.reply(pendingLiveMsg, { type: 'pending', env: 'live', commits: [] });
 });
@@ -1074,7 +1339,14 @@ test('deploy › Deploy failure still reloads downstream lists', async () => {
   const h = load();
   // Given the deploy workflow fails
   await boot(h, {
-    pendingTest: [{ hash: 'a1', author: 'Terry', datetime: '2026-10-02T10:00:00-07:00', message: 'x' }]
+    pendingTest: [
+      {
+        hash: 'a1',
+        author: 'Terry',
+        datetime: '2026-10-02T10:00:00-07:00',
+        message: 'x'
+      }
+    ]
   });
   h.type('#test-note', 'Release');
   h.click('#test-deploy');
@@ -1091,14 +1363,20 @@ test('deploy › Deploy failure still reloads downstream lists', async () => {
   assert.ok(h.text('#test-status').includes('Pantheon workflow failed'));
 
   // Then the live pending list reloads
-  const pendingLiveMsg = await h.waitFor((m) => m.type === 'pending' && m.env === 'live' && !m._consumed);
+  const pendingLiveMsg = await h.waitFor(
+    (m) => m.type === 'pending' && m.env === 'live' && !m._consumed
+  );
   h.consume(pendingLiveMsg);
   h.reply(pendingLiveMsg, { type: 'pending', env: 'live', commits: [] });
 });
 
 // ── dashboard-clear-caches.feature ──
 
-for (const [card, env] of [['dev', 'dev'], ['test', 'test'], ['live', 'live']]) {
+for (const [card, env] of [
+  ['dev', 'dev'],
+  ['test', 'test'],
+  ['live', 'live']
+]) {
   test(`clear-caches › Clear caches asks inline (${card})`, async () => {
     const h = load();
     await boot(h, { devMode: 'git', unpushedCommits: [] });
@@ -1231,7 +1509,9 @@ test('content-sync › Opening the panel', async () => {
   // Then the panel slides down
   assert.ok(h.$('#test-confirm').classList.contains('open'));
   // Then "Sync from" lists "dev", "live", "themes"
-  const options = [...h.$('#test-confirm-from').querySelectorAll('option')].map((o) => o.value);
+  const options = [...h.$('#test-confirm-from').querySelectorAll('option')].map(
+    (o) => o.value
+  );
   assert.deepEqual(options, ['dev', 'live', 'themes']);
   // Then "Database", "Files" and "Clear caches afterwards" are unchecked
   assert.equal(h.$('#test-confirm-db').checked, false);
@@ -1271,8 +1551,16 @@ for (const { ticked, state } of tickOutline) {
 }
 
 const syncOutline = [
-  { label: 'Database', set: (h) => h.check('#test-confirm-db', true), flags: ['--db-only'] },
-  { label: 'Files', set: (h) => h.check('#test-confirm-files', true), flags: ['--files-only'] },
+  {
+    label: 'Database',
+    set: (h) => h.check('#test-confirm-db', true),
+    flags: ['--db-only']
+  },
+  {
+    label: 'Files',
+    set: (h) => h.check('#test-confirm-files', true),
+    flags: ['--files-only']
+  },
   {
     label: 'Database and Files',
     set: (h) => {
@@ -1468,7 +1756,9 @@ test('workflows › A deploy started elsewhere shows the test spinner', async ()
 
   // Then the test card shows a spinner naming the workflow
   assert.ok(hasSpinner(h, 'test'));
-  assert.ok(h.text('#test-status').includes('Deploy code to test running on test'));
+  assert.ok(
+    h.text('#test-status').includes('Deploy code to test running on test')
+  );
   // And the test card is busy with its buttons disabled
   assert.ok(isBusy(h, 'test'));
   assert.equal(h.$('#test-deploy').disabled, true);
@@ -1520,7 +1810,9 @@ test('workflows › A running workflow on the selected multidev shows the dev sp
 
   // Then the dev card shows a spinner naming "themes"
   assert.ok(hasSpinner(h, 'dev'));
-  assert.ok(h.text('#dev-status').includes('Sync code on themes running on themes'));
+  assert.ok(
+    h.text('#dev-status').includes('Sync code on themes running on themes')
+  );
   assert.ok(isBusy(h, 'dev'));
 });
 

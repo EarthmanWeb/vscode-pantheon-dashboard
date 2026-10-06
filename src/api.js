@@ -6,7 +6,8 @@ const TERMINAL_STATUSES = new Set(['succeeded', 'failed', 'aborted']);
 // Pantheon housekeeping that runs on its own schedule (e.g. the package index
 // refresh auto-queued after every live deploy, ~4-5 min). Never caused by a
 // dashboard operation, so never waited on.
-const BACKGROUND_WORKFLOWS = /Update the Package Index Service|Automated backup/;
+const BACKGROUND_WORKFLOWS =
+  /Update the Package Index Service|Automated backup/;
 const POLL_MS = 4000;
 const WAIT_TIMEOUT_MS = 10 * 60 * 1000;
 // Database clones of large sites run well past 10 minutes.
@@ -187,7 +188,9 @@ class PantheonApi {
     const remote = await this.fetchPantheon();
     const testTag = await this.latestDeployTag('test');
     if (env === 'test') {
-      return this.logCommits(`${testTag}..${remote}/master`, ['--first-parent']);
+      return this.logCommits(`${testTag}..${remote}/master`, [
+        '--first-parent'
+      ]);
     }
     const liveTag = await this.latestDeployTag('live');
     return this.logCommits(`${liveTag}..${testTag}`, ['--first-parent']);
@@ -287,9 +290,7 @@ class PantheonApi {
   async waitForEnv(site, env, sinceEpoch, timeoutMs = this.waitTimeoutMs) {
     const deadline = Date.now() + timeoutMs;
     for (;;) {
-      const flows = Object.values(
-        await this.workflowList(site)
-      ).filter(
+      const flows = Object.values(await this.workflowList(site)).filter(
         (w) =>
           w.env === env &&
           w.started_at >= sinceEpoch - 120 &&
