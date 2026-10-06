@@ -623,8 +623,14 @@
   // workflows that start and end between polls, or while the panel was hidden,
   // are not missed. The first successful poll only records the baseline. A card
   // busy with its own operation is left alone.
+  // Adaptive cadence: 5 s while any workflow runs or a card is watched/busy,
+  // 15 s when idle. Self-scheduling timer (one chain), plus an immediate poll
+  // when the panel becomes visible.
   const WORKFLOW_POLL_MS = 5000;
+  const WORKFLOW_IDLE_POLL_MS = 15000;
   let workflowPolling = false;
+  let anyActive = false;
+  let workflowTimer = null;
   let lastFinished = {};
   let baselined = false;
   // card key -> env whose workflows its spinner is following.
@@ -680,6 +686,7 @@
       }
       lastFinished = finished;
       baselined = true;
+      anyActive = Object.values(active).some((names) => names.length);
     } catch (err) {
       for (const key of ['dev', 'test', 'live']) {
         if (idle(key)) {
@@ -688,6 +695,33 @@
       }
     }
     workflowPolling = false;
+  };
+
+  const workflowPollDelay = () =>
+    anyActive ||
+    Object.keys(watching).length ||
+    ['dev', 'test', 'live'].some((key) =>
+      byId(`card-${key}`).classList.contains('busy')
+    )
+      ? WORKFLOW_POLL_MS
+      : WORKFLOW_IDLE_POLL_MS;
+  const scheduleWorkflowPoll = (delay = workflowPollDelay()) => {
+    clearTimeout(workflowTimer);
+    workflowTimer = setTimeout(async () => {
+      await pollWorkflows();
+      scheduleWorkflowPoll();
+    }, delay);
+  };
+  const startWorkflowPolling = () => {
+    scheduleWorkflowPoll(WORKFLOW_POLL_MS);
+    document.addEventListener('visibilitychange', async () => {
+      if (document.hidden) {
+        return;
+      }
+      clearTimeout(workflowTimer);
+      await pollWorkflows();
+      scheduleWorkflowPoll();
+    });
   };
 
   // After a card's workflow settles (spinner cleared), reload the commit lists
@@ -815,7 +849,7 @@
       skeleton();
       refreshAll();
       setInterval(pollUnpushed, LOCAL_POLL_MS);
-      setInterval(pollWorkflows, WORKFLOW_POLL_MS);
+      startWorkflowPolling();
     } catch (err) {
       app.innerHTML = `<div class="center">${fail(err)}</div>`;
     }

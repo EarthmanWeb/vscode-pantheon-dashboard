@@ -1437,8 +1437,16 @@ test('workflows › Errors reach the card that started the operation', async () 
 
 // Advances the 5s timer, answers the resulting workflows poll with `active`
 // and `finished` and lets the UI settle.
+// The poll runs every 5 s while anything is active and every 15 s when idle,
+// so advance in 5 s steps until the request appears.
 const pollWorkflows = async (h, active, finished = {}) => {
-  h.tick(5000);
+  for (let i = 0; i < 3; i += 1) {
+    h.tick(5000);
+    await new Promise((resolve) => setImmediate(resolve));
+    if (h.posted.some((m) => m.type === 'workflows' && !m._consumed)) {
+      break;
+    }
+  }
   const msg = await h.nextRequest('workflows');
   h.consume(msg);
   h.reply(msg, { type: 'workflows', active, finished });
@@ -1677,4 +1685,71 @@ test('workflows › A card running its own operation is not refreshed by a finis
   // Then the test pending commits are not requested
   assert.equal(pendingRequests(h, 'pending', 'test').length, 0);
   assert.ok(isBusy(h, 'test'));
+});
+
+// ── dashboard-workflows.feature (adaptive poll cadence) ──
+
+const settleUi = async () => {
+  await new Promise((resolve) => setImmediate(resolve));
+  await new Promise((resolve) => setImmediate(resolve));
+};
+const workflowRequests = (h) => h.posted.filter((m) => m.type === 'workflows');
+
+// Answers the next workflows request with the given active map.
+const answerWorkflows = async (h, active) => {
+  const msg = await h.nextRequest('workflows');
+  h.consume(msg);
+  h.reply(msg, { type: 'workflows', active, finished: {} });
+  await settleUi();
+};
+
+test('workflows › An idle dashboard polls every 15 s, not 5 s', async () => {
+  const h = load();
+  await boot(h, {});
+  // Given the first poll finds nothing running
+  h.tick(5000);
+  await answerWorkflows(h, {});
+  assert.equal(workflowRequests(h).length, 1);
+
+  // When 5 s pass
+  h.tick(5000);
+  await settleUi();
+  // Then no further workflows request is sent
+  assert.equal(workflowRequests(h).length, 1);
+
+  // When 10 s more pass (15 s since the poll)
+  h.tick(10000);
+  await settleUi();
+  // Then the next workflows request is sent
+  assert.equal(workflowRequests(h).length, 2);
+});
+
+test('workflows › A running workflow keeps the poll at 5 s', async () => {
+  const h = load();
+  await boot(h, {});
+  h.tick(5000);
+  // Given the poll reports a workflow running on test
+  await answerWorkflows(h, { test: ['Deploy code to test'] });
+  assert.equal(workflowRequests(h).length, 1);
+
+  // When 5 s pass
+  h.tick(5000);
+  await settleUi();
+  // Then the next workflows request is sent
+  assert.equal(workflowRequests(h).length, 2);
+});
+
+test('workflows › Becoming visible polls immediately', async () => {
+  const h = load();
+  await boot(h, {});
+  h.tick(5000);
+  await answerWorkflows(h, {});
+  assert.equal(workflowRequests(h).length, 1);
+
+  // When the panel becomes visible again
+  h.setHidden(false);
+  h.document.dispatchEvent(new h.window.Event('visibilitychange'));
+  await settleUi();
+  // Then a workflows request is sent without waiting
+  assert.equal(workflowRequests(h).length, 2);
 });
