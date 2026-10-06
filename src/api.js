@@ -193,12 +193,29 @@ class PantheonApi {
     return this.logCommits(`${liveTag}..${testTag}`, ['--first-parent']);
   }
 
+  // Single-flight workflow:list (~3.6 s per call). Records the call as the
+  // in-flight one so activeWorkflows can join it; waitForEnv always calls this
+  // directly so its data never predates the mutation it waits on.
+  workflowList(site) {
+    const entry = { site };
+    entry.promise = this.terminusJson(['workflow:list', site]).finally(() => {
+      if (this.workflowListInflight === entry) {
+        this.workflowListInflight = null;
+      }
+    });
+    this.workflowListInflight = entry;
+    return entry.promise;
+  }
+
   // Per env (any origin), excluding Pantheon housekeeping: `active` = names of
   // running workflows; `finished` = id of the newest terminal (succeeded,
   // failed or aborted) workflow by finished_at, so callers can detect
   // workflows that settled between polls.
   async activeWorkflows(site) {
-    const flows = await this.terminusJson(['workflow:list', site]);
+    const inflight = this.workflowListInflight;
+    const flows = await (inflight && inflight.site === site
+      ? inflight.promise
+      : this.workflowList(site));
     const active = {};
     const newest = {};
     for (const w of Object.values(flows)) {
@@ -271,7 +288,7 @@ class PantheonApi {
     const deadline = Date.now() + timeoutMs;
     for (;;) {
       const flows = Object.values(
-        await this.terminusJson(['workflow:list', site])
+        await this.workflowList(site)
       ).filter(
         (w) =>
           w.env === env &&

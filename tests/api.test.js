@@ -1022,3 +1022,68 @@ test('deploy › Merged branch commits are not pending (real git repo)', async (
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+// ── dashboard-workflows.feature (shared workflow:list) ──
+
+// Stub runner whose workflow:list replies are released by the test.
+const gatedRunner = () => {
+  const calls = [];
+  const run = (bin, args) =>
+    new Promise((resolve) => {
+      calls.push({ site: args[1], resolve });
+    });
+  return { calls, run };
+};
+const settleTicks = () => new Promise((resolve) => setImmediate(resolve));
+
+test('workflows › activeWorkflows joins an in-flight waitForEnv poll', async () => {
+  const { calls, run } = gatedRunner();
+  const api = new PantheonApi('/tmp', { pollMs: 1, run });
+  const waiting = api.waitForEnv('site', 'dev', Date.now() / 1000 - 10);
+  await settleTicks();
+  assert.equal(calls.length, 1);
+
+  const active = api.activeWorkflows('site');
+  await settleTicks();
+  // Then no second workflow:list is issued
+  assert.equal(calls.length, 1);
+
+  calls[0].resolve(flows('succeeded'));
+  const result = await active;
+  assert.deepEqual(result.active, {});
+  await waiting;
+  assert.equal(calls.length, 1);
+});
+
+test('workflows › waitForEnv never reuses an in-flight activeWorkflows call', async () => {
+  const { calls, run } = gatedRunner();
+  const api = new PantheonApi('/tmp', { pollMs: 1, run });
+  const active = api.activeWorkflows('site');
+  await settleTicks();
+  assert.equal(calls.length, 1);
+
+  const waiting = api.waitForEnv('site', 'dev', Date.now() / 1000 - 10);
+  await settleTicks();
+  // Then waitForEnv issues its own fresh call
+  assert.equal(calls.length, 2);
+
+  calls[0].resolve(flows('succeeded'));
+  calls[1].resolve(flows('succeeded'));
+  await active;
+  await waiting;
+});
+
+test('workflows › activeWorkflows for a different site issues a separate call', async () => {
+  const { calls, run } = gatedRunner();
+  const api = new PantheonApi('/tmp', { pollMs: 1, run });
+  const waiting = api.waitForEnv('site-a', 'dev', Date.now() / 1000 - 10);
+  await settleTicks();
+  const active = api.activeWorkflows('site-b');
+  await settleTicks();
+  assert.equal(calls.length, 2);
+  assert.equal(calls[1].site, 'site-b');
+  calls[0].resolve(flows('succeeded'));
+  calls[1].resolve(flows('succeeded'));
+  await active;
+  await waiting;
+});
