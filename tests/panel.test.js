@@ -382,10 +382,13 @@ test('deploy › pending route', async () => {
 
 test('workflows › workflows route', async () => {
   const active = { dev: ['Sync code on "dev"'] };
-  const api = makeFakeApi({ activeWorkflows: async () => active });
+  const finished = { test: 'abc' };
+  const api = makeFakeApi({
+    activeWorkflows: async () => ({ active, finished })
+  });
   const provider = makeProvider(api);
   const result = await provider.handle({ type: 'workflows', site: 'site' });
-  assert.deepEqual(result, { type: 'workflows', active });
+  assert.deepEqual(result, { type: 'workflows', active, finished });
   assert.deepEqual(api.calls[0], ['activeWorkflows', 'site']);
 });
 

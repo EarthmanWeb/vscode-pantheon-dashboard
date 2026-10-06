@@ -81,3 +81,38 @@ Feature: Waiting for Pantheon workflows
     Then the card is idle
     When the next poll reports no running workflows
     Then the card is still idle and shows no workflow spinner
+
+  Scenario: A workflow that starts and finishes between polls refreshes the cards
+    Given a poll recorded the newest finished workflow on dev
+    When the next poll reports a newer finished workflow and none running
+    Then the dev card is reloaded
+    And the test and live pending commits are requested again
+
+  Scenario: Workflows that ran while the panel was hidden refresh on the next visible poll
+    Given a poll recorded the newest finished workflow on dev
+    When the panel is hidden and time passes
+    Then no workflows request is sent
+    When the panel is visible again and the next poll reports a newer finished workflow
+    Then the test and live pending commits are requested again
+
+  Scenario: A failed workflow still refreshes the cards
+    Given a poll recorded the newest finished workflow on test
+    When the next poll reports a new finished id for a failed run on test
+    Then the test pending commits are requested again
+
+  Scenario: The first poll never refreshes
+    Given the dashboard is loaded
+    When the first poll reports finished workflows
+    Then no card is reloaded
+
+  Scenario: A watched workflow ending refreshes the card exactly once
+    Given the test card shows a spinner for a workflow started elsewhere
+    When the next poll reports no running workflows and a new finished id
+    Then the test pending commits are requested once
+
+  Scenario: A card running its own operation is not refreshed by a finished change
+    Given a poll recorded the newest finished workflow on test
+    And the test card is clearing caches
+    When a poll reports a new finished id on test
+    Then the test pending commits are not requested
+    And the test card is still busy

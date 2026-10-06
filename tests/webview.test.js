@@ -1436,12 +1436,12 @@ test('workflows › Errors reach the card that started the operation', async () 
 });
 
 // Advances the 5s timer, answers the resulting workflows poll with `active`
-// and lets the UI settle.
-const pollWorkflows = async (h, active) => {
+// and `finished` and lets the UI settle.
+const pollWorkflows = async (h, active, finished = {}) => {
   h.tick(5000);
   const msg = await h.nextRequest('workflows');
   h.consume(msg);
-  h.reply(msg, { type: 'workflows', active });
+  h.reply(msg, { type: 'workflows', active, finished });
   await new Promise((resolve) => setImmediate(resolve));
   await new Promise((resolve) => setImmediate(resolve));
   return msg;
@@ -1572,4 +1572,109 @@ test('workflows › A card running its own operation is not taken over', async (
   // Then the card is still idle and shows no workflow spinner
   assert.ok(!isBusy(h, 'test'));
   assert.ok(!h.text('#test-status').includes('running on'));
+});
+
+// Unanswered requests of `type` (optionally for one env) posted since the
+// harness last consumed them.
+const pendingRequests = (h, type, env) =>
+  h.posted.filter(
+    (m) => m.type === type && !m._consumed && (!env || m.env === env)
+  );
+
+test('workflows › A workflow that starts and finishes between polls refreshes the cards', async () => {
+  const h = load();
+  // Given a baseline poll recorded the newest finished workflow on dev
+  await boot(h, {});
+  await pollWorkflows(h, {}, { dev: 'w1' });
+  assert.equal(pendingRequests(h, 'pending').length, 0);
+
+  // When the next poll reports a newer finished workflow and nothing active
+  await pollWorkflows(h, {}, { dev: 'w2' });
+
+  // Then the dev card is reloaded
+  assert.equal(pendingRequests(h, 'devInfo').length, 1);
+  // And the test and live pending commits are requested again
+  assert.equal(pendingRequests(h, 'pending', 'test').length, 1);
+  assert.equal(pendingRequests(h, 'pending', 'live').length, 1);
+});
+
+test('workflows › Workflows that ran while the panel was hidden refresh on the next visible poll', async () => {
+  const h = load();
+  // Given a baseline poll recorded the newest finished workflow on dev
+  await boot(h, {});
+  await pollWorkflows(h, {}, { dev: 'w1' });
+
+  // When the panel is hidden and time passes
+  h.setHidden(true);
+  h.tick(5000);
+  await new Promise((resolve) => setImmediate(resolve));
+  // Then no workflows request is sent
+  assert.equal(pendingRequests(h, 'workflows').length, 0);
+
+  // When the panel is visible again and the next poll shows a new workflow
+  h.setHidden(false);
+  await pollWorkflows(h, {}, { dev: 'w2' });
+
+  // Then the test and live pending commits are requested again
+  assert.equal(pendingRequests(h, 'pending', 'test').length, 1);
+  assert.equal(pendingRequests(h, 'pending', 'live').length, 1);
+});
+
+test('workflows › A failed workflow still refreshes the cards', async () => {
+  const h = load();
+  // Given a baseline poll recorded the newest finished workflow on test
+  await boot(h, {});
+  await pollWorkflows(h, {}, { test: 'ok1' });
+
+  // When the next poll reports a new finished id (a failed run) on test
+  await pollWorkflows(h, {}, { test: 'failed2' });
+
+  // Then the test pending commits are requested again
+  assert.equal(pendingRequests(h, 'pending', 'test').length, 1);
+});
+
+test('workflows › The first poll never refreshes', async () => {
+  const h = load();
+  // Given the dashboard is loaded
+  await boot(h, {});
+
+  // When the first poll reports finished workflows
+  await pollWorkflows(h, {}, { dev: 'w1', test: 't1', live: 'l1' });
+
+  // Then no card is reloaded
+  assert.equal(pendingRequests(h, 'pending').length, 0);
+  assert.equal(pendingRequests(h, 'devInfo').length, 0);
+});
+
+test('workflows › A watched workflow ending refreshes the card exactly once', async () => {
+  const h = load();
+  // Given the test spinner follows a workflow started elsewhere
+  await boot(h, {});
+  await pollWorkflows(h, { test: ['Deploy code to test'] }, { test: 't1' });
+  assert.ok(isBusy(h, 'test'));
+
+  // When the next poll sees it idle with a new finished id
+  await pollWorkflows(h, {}, { test: 't2' });
+
+  // Then the test pending commits are requested once
+  assert.equal(pendingRequests(h, 'pending', 'test').length, 1);
+});
+
+test('workflows › A card running its own operation is not refreshed by a finished change', async () => {
+  const h = load();
+  // Given a baseline poll and the test card clearing caches
+  await boot(h, {});
+  await pollWorkflows(h, {}, { test: 't1' });
+  h.click('[data-clear="test"]');
+  await new Promise((resolve) => setImmediate(resolve));
+  h.click('#test-confirm-yes');
+  const clearMsg = await h.nextRequest('clearCache');
+  h.consume(clearMsg);
+
+  // When a poll reports a new finished id on test
+  await pollWorkflows(h, {}, { test: 't2' });
+
+  // Then the test pending commits are not requested
+  assert.equal(pendingRequests(h, 'pending', 'test').length, 0);
+  assert.ok(isBusy(h, 'test'));
 });

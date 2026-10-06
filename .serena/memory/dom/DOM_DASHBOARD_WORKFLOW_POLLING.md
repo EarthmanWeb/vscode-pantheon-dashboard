@@ -39,13 +39,24 @@ obligations:
 
 ## Background Workflow Watch (any origin)
 
-- Host: `src/api.js:PantheonApi.activeWorkflows(site)` — ONE `workflow:list <site>` call, returns `{ <env>: [<workflow name>, ...] }` for non-terminal workflows not matching `BACKGROUND_WORKFLOWS`; `{}` when none. Read-only, NEVER calls `waitForEnv`. Routed by `src/panel.js` `case 'workflows'` → `{ type: 'workflows', active }`.
+- Host: `src/api.js:PantheonApi.activeWorkflows(site)` — ONE `workflow:list <site>` call, returns `{ active, finished }`. `active` = `{ <env>: [<workflow name>, ...] }` for non-terminal workflows not matching `BACKGROUND_WORKFLOWS`; `{}` when none. `finished` = `{ <env>: <id> }` — id of the newest (largest `finished_at`) terminal (succeeded/failed/aborted) non-`BACKGROUND_WORKFLOWS` workflow on that env; env absent when none. Read-only, NEVER calls `waitForEnv`. Routed by `src/panel.js` `case 'workflows'` → `{ type: 'workflows', active, finished }`.
 - Webview: `media/main.js:pollWorkflows` every `WORKFLOW_POLL_MS` (5000ms), started in `init()`; skips a tick while a poll is in flight, `document.hidden`, or no `state.site`.
 - Card env: `cardEnv(key)` — dev card → `state.devEnv` (dev or selected multidev), test/live → key.
 - Watch start: card idle (not busy, not watched) and `active[env]` non-empty → `watching[key] = env`, `setBusy(key, true)`, spinner `<names> running on <env>…`.
-- Watch end: first poll with no active workflow on the watched env, or dev-card env changed → clear watch, `setBusy(false)`, clear status, `syncButtons()`, reload the card (`refreshDev` / `refreshPending`), then `refreshDownstream(key)`.
+- Watch end: first poll with no active workflow on the watched env, or dev-card env changed → clear watch, `setBusy(false)`, clear status, `syncButtons()`, reload via the local `reload(key)` helper (`refreshDev` / `refreshPending`, then `refreshDownstream(key)`).
 - A card busy with its OWN operation is never taken over — its own `waitForEnv` already drives its spinner.
 - Poll error → `fail(err)` on every idle, unwatched card.
+
+### Settle detection (finished id)
+
+- Webview keeps `lastFinished` (env→id) + `baselined`.
+- First successful poll only records the baseline — NO refresh.
+- Later polls: card idle (not watching, not busy), no active workflow on its env, and `finished[env]` changed → `reload(key)` (card reload + `refreshDownstream`).
+- Skip a key whose watch ended this poll (no double refresh).
+- Covers: workflows that start+finish between two 5s polls; workflows that ran while `document.hidden` (baseline survives hidden ticks; first visible poll catches it); failed/aborted runs.
+- Poll error leaves the baseline unchanged.
+- A card busy with its own op is NOT refreshed by this path.
+- Accepted: one redundant refresh possible after a card's own op when no poll fell between workflow end and op settle.
 
 ## Downstream Refresh (`media/main.js`)
 

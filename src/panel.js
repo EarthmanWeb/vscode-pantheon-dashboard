@@ -153,7 +153,7 @@ class DashboardViewProvider {
       case 'workflows':
         return {
           type: 'workflows',
-          active: await this.api.activeWorkflows(msg.site)
+          ...(await this.api.activeWorkflows(msg.site))
         };
       case 'deploy': {
         await this.api.deploy(msg.site, msg.env, msg.note, {

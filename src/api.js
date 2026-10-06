@@ -139,20 +139,30 @@ class PantheonApi {
     });
   }
 
-  // Running workflows per env (any origin), excluding Pantheon housekeeping.
+  // Per env (any origin), excluding Pantheon housekeeping: `active` = names of
+  // running workflows; `finished` = id of the newest terminal (succeeded,
+  // failed or aborted) workflow by finished_at, so callers can detect
+  // workflows that settled between polls.
   async activeWorkflows(site) {
     const flows = await this.terminusJson(['workflow:list', site]);
     const active = {};
+    const newest = {};
     for (const w of Object.values(flows)) {
-      if (
-        TERMINAL_STATUSES.has(w.status) ||
-        BACKGROUND_WORKFLOWS.test(w.workflow)
-      ) {
+      if (BACKGROUND_WORKFLOWS.test(w.workflow)) {
+        continue;
+      }
+      if (TERMINAL_STATUSES.has(w.status)) {
+        if (!newest[w.env] || w.finished_at > newest[w.env].finished_at) {
+          newest[w.env] = w;
+        }
         continue;
       }
       (active[w.env] ||= []).push(w.workflow);
     }
-    return active;
+    const finished = Object.fromEntries(
+      Object.entries(newest).map(([env, w]) => [env, w.id])
+    );
+    return { active, finished };
   }
 
   async deploy(site, env, note, { cc = false } = {}) {

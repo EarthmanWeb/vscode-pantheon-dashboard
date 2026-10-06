@@ -721,9 +721,16 @@ test('api › clearCache clears the env then waits for workflows', async () => {
 const workflowList = (...items) =>
   JSON.stringify(
     Object.fromEntries(
-      items.map(([env, workflow, status], i) => [
+      items.map(([env, workflow, status, finishedAt], i) => [
         `w${i}`,
-        { id: `w${i}`, env, workflow, status, started_at: Date.now() / 1000 }
+        {
+          id: `w${i}`,
+          env,
+          workflow,
+          status,
+          started_at: Date.now() / 1000,
+          finished_at: finishedAt
+        }
       ])
     )
   );
@@ -749,7 +756,7 @@ test('workflows › Active workflows are grouped by env', async () => {
       ['live', 'Clear cache', 'running']
     )
   );
-  const active = await api.activeWorkflows('site');
+  const { active } = await api.activeWorkflows('site');
   // Then only running workflows are returned, grouped by env
   assert.deepEqual(active, {
     dev: ['Sync code on "dev"'],
@@ -767,11 +774,65 @@ test('workflows › Pantheon housekeeping workflows are not reported', async () 
     )
   );
   // Then nothing is reported
-  assert.deepEqual(await api.activeWorkflows('site'), {});
+  assert.deepEqual(await api.activeWorkflows('site'), {
+    active: {},
+    finished: {}
+  });
 });
 
 test('workflows › No active workflows', async () => {
   const api = workflowsApi(workflowList(['dev', 'Deploy', 'succeeded']));
-  // Then the result is empty
-  assert.deepEqual(await api.activeWorkflows('site'), {});
+  // Then no workflow is active
+  assert.deepEqual((await api.activeWorkflows('site')).active, {});
+});
+
+test('workflows › Finished is the newest terminal workflow id per env', async () => {
+  const api = workflowsApi(
+    workflowList(
+      ['dev', 'Deploy', 'succeeded', 100],
+      ['dev', 'Clear cache', 'succeeded', 300],
+      ['dev', 'Sync code', 'succeeded', 200],
+      ['test', 'Deploy', 'succeeded', 50]
+    )
+  );
+  // Then finished maps each env to the id with the largest finished_at
+  assert.deepEqual((await api.activeWorkflows('site')).finished, {
+    dev: 'w1',
+    test: 'w3'
+  });
+});
+
+test('workflows › Failed and aborted workflows count as finished', async () => {
+  const api = workflowsApi(
+    workflowList(
+      ['dev', 'Deploy', 'succeeded', 100],
+      ['dev', 'Clear cache', 'failed', 200],
+      ['test', 'Sync code', 'aborted', 150]
+    )
+  );
+  // Then they are reported as finished
+  assert.deepEqual((await api.activeWorkflows('site')).finished, {
+    dev: 'w1',
+    test: 'w2'
+  });
+});
+
+test('workflows › Running and housekeeping workflows are not finished', async () => {
+  const api = workflowsApi(
+    workflowList(
+      ['dev', 'Deploy', 'running'],
+      ['live', 'Update the Package Index Service', 'succeeded', 500],
+      ['live', 'Clear cache', 'succeeded', 100]
+    )
+  );
+  // Then only the non-housekeeping terminal workflow is reported
+  assert.deepEqual((await api.activeWorkflows('site')).finished, {
+    live: 'w2'
+  });
+});
+
+test('workflows › Finished is empty when nothing is terminal', async () => {
+  const api = workflowsApi(workflowList(['dev', 'Deploy', 'running']));
+  // Then finished is empty
+  assert.deepEqual((await api.activeWorkflows('site')).finished, {});
 });

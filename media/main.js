@@ -618,9 +618,15 @@
   // Background check for Pantheon workflows running on a card's env —
   // including ones started outside VS Code. While any is active the card
   // shows a spinner; the first poll that sees none clears it and reloads the
-  // card. A card busy with its own operation is left alone.
+  // card. The host also reports `finished` (env -> id of its newest finished
+  // workflow, failed included): a changed id on an idle card reloads it too, so
+  // workflows that start and end between polls, or while the panel was hidden,
+  // are not missed. The first successful poll only records the baseline. A card
+  // busy with its own operation is left alone.
   const WORKFLOW_POLL_MS = 5000;
   let workflowPolling = false;
+  let lastFinished = {};
+  let baselined = false;
   // card key -> env whose workflows its spinner is following.
   const watching = {};
   const cardEnv = (key) => (key === 'dev' ? state.devEnv : key);
@@ -632,10 +638,18 @@
     const idle = (key) =>
       !watching[key] && !byId(`card-${key}`).classList.contains('busy');
     try {
-      const { active } = await request({
+      const { active, finished } = await request({
         type: 'workflows',
         site: state.site
       });
+      const reload = (key) => {
+        if (key === 'dev') {
+          refreshDev();
+        } else {
+          refreshPending(key);
+        }
+        refreshDownstream(key);
+      };
       for (const key of ['dev', 'test', 'live']) {
         const names = active[watching[key] || cardEnv(key)] || [];
         const label = (env) => spin(`${names.join(', ')} running on ${env}…`);
@@ -654,14 +668,18 @@
           setBusy(key, false);
           setStatus(key, '');
           syncButtons();
-          if (key === 'dev') {
-            refreshDev();
-          } else {
-            refreshPending(key);
-          }
-          refreshDownstream(key);
+          reload(key);
+        } else if (
+          baselined &&
+          idle(key) &&
+          !names.length &&
+          finished[cardEnv(key)] !== lastFinished[cardEnv(key)]
+        ) {
+          reload(key);
         }
       }
+      lastFinished = finished;
+      baselined = true;
     } catch (err) {
       for (const key of ['dev', 'test', 'live']) {
         if (idle(key)) {
