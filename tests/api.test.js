@@ -953,3 +953,72 @@ test('workflows › Finished is empty when nothing is terminal', async () => {
   // Then finished is empty
   assert.deepEqual((await api.activeWorkflows('site')).finished, {});
 });
+
+// ── pending commits follow first-parent history ──
+
+test('deploy › Pending commits use first-parent history on test and live', async () => {
+  const { calls, run } = pendingStub();
+  const api = new PantheonApi('/tmp', { run });
+  await api.pendingCommits('site', 'test');
+  await api.pendingCommits('site', 'live');
+  const logs = gitCalls(calls, 'log');
+  assert.equal(logs.length, 2);
+  assert.ok(logs[0].args.includes('--first-parent'));
+  assert.ok(logs[1].args.includes('--first-parent'));
+});
+
+test('local-commits › Unpushed commits keep full history (no --first-parent)', async () => {
+  const calls = [];
+  const api = new PantheonApi('/tmp', {
+    run: async (bin, args) => {
+      calls.push(args);
+      return '';
+    }
+  });
+  await api.unpushedCommits('master');
+  const log = calls.find((a) => a[0] === 'log');
+  assert.ok(!log.includes('--first-parent'));
+});
+
+test('deploy › Merged branch commits are not pending (real git repo)', async () => {
+  const { execFileSync } = require('node:child_process');
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const path = require('node:path');
+  const { run } = require('../src/shell');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pending-fp-'));
+  try {
+    const git = (...args) =>
+      execFileSync(
+        'git',
+        [
+          '-c',
+          'user.name=Test',
+          '-c',
+          'user.email=test@example.com',
+          '-c',
+          'commit.gpgsign=false',
+          ...args
+        ],
+        { cwd: dir, encoding: 'utf8' }
+      );
+    git('init', '-q', '-b', 'master');
+    git('commit', '-q', '--allow-empty', '-m', 'base');
+    git('tag', 'pantheon_test_1');
+    git('checkout', '-q', '-b', 'feature');
+    git('commit', '-q', '--allow-empty', '-m', 'feature one');
+    git('commit', '-q', '--allow-empty', '-m', 'feature two');
+    git('checkout', '-q', 'master');
+    git('merge', '-q', '--no-ff', 'feature', '-m', 'merge feature');
+    git('update-ref', 'refs/remotes/pantheon/master', 'master');
+    const api = new PantheonApi(dir, { run });
+    api.fetchPantheon = async () => 'pantheon';
+    const commits = await api.pendingCommits('site', 'test');
+    assert.deepEqual(
+      commits.map((c) => c.message),
+      ['merge feature']
+    );
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

@@ -115,12 +115,13 @@ class PantheonApi {
     return this.logCommits(`origin/${branch}..${branch}`);
   }
 
-  async logCommits(range) {
+  async logCommits(range, extra = []) {
     const out = await this.git([
       'log',
       range,
       '--date=iso-strict',
-      '--format=%H%x1f%an%x1f%ad%x1f%s'
+      '--format=%H%x1f%an%x1f%ad%x1f%s',
+      ...extra
     ]);
     return out
       .split('\n')
@@ -186,10 +187,10 @@ class PantheonApi {
     const remote = await this.fetchPantheon();
     const testTag = await this.latestDeployTag('test');
     if (env === 'test') {
-      return this.logCommits(`${testTag}..${remote}/master`);
+      return this.logCommits(`${testTag}..${remote}/master`, ['--first-parent']);
     }
     const liveTag = await this.latestDeployTag('live');
-    return this.logCommits(`${liveTag}..${testTag}`);
+    return this.logCommits(`${liveTag}..${testTag}`, ['--first-parent']);
   }
 
   // Per env (any origin), excluding Pantheon housekeeping: `active` = names of
