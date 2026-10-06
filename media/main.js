@@ -43,6 +43,11 @@
   // Cards that offer content sync (live is never a sync target).
   const SYNC_KEYS = ['dev', 'test'];
   const pendingCounts = { test: 0, live: 0 };
+  // Last note prefilled from pending commit messages; a note the user has
+  // edited away from it is never overwritten.
+  const notePrefill = { test: '', live: '' };
+  // Envs locked from the deploy click until the deploy request settles.
+  const deploying = new Set();
   // Open confirm per card: { resolve, opts, yesBtn }.
   const confirms = {};
 
@@ -82,8 +87,12 @@
       sync.disabled = !state.unpushedCount;
     }
     for (const env of ['test', 'live']) {
+      const locked =
+        deploying.has(env) || byId(`card-${env}`).classList.contains('busy');
+      byId(`${env}-note`).disabled = locked;
+      byId(`${env}-note-clear`).disabled = locked;
       byId(`${env}-deploy`).disabled =
-        !byId(`${env}-note`).value.trim() || !pendingCounts[env];
+        locked || !byId(`${env}-note`).value.trim() || !pendingCounts[env];
     }
   };
 
@@ -162,6 +171,11 @@
 
   const renderPending = (env, commits) => {
     pendingCounts[env] = commits.length;
+    const note = byId(`${env}-note`);
+    if (!note.value.trim() || note.value === notePrefill[env]) {
+      notePrefill[env] = commits.map((c) => c.message).join('\n');
+      note.value = notePrefill[env];
+    }
     const source = env === 'test' ? 'dev' : 'test';
     byId(`${env}-badge`).textContent = `${commits.length} pending`;
     byId(`${env}-body`).innerHTML = commits.length
@@ -198,7 +212,10 @@
         ${confirmPanel(env)}
         <div class="status" id="${env}-status"></div>
         <div class="commitbox">
-          <textarea id="${env}-note" rows="2" placeholder="Deploy note"></textarea>
+          <div class="clearable">
+            <textarea id="${env}-note" rows="2" placeholder="Deploy note"></textarea>
+            ${iconButton(`id="${env}-note-clear"`, 'close', 'Clear note')}
+          </div>
           <button id="${env}-deploy" disabled>${label}</button>
         </div>
         <div class="body" id="${env}-body"></div>
@@ -270,6 +287,11 @@
     for (const env of ['test', 'live']) {
       byId(`${env}-deploy`).addEventListener('click', () => deployEnv(env));
       byId(`${env}-note`).addEventListener('input', syncButtons);
+      byId(`${env}-note-clear`).addEventListener('click', () => {
+        byId(`${env}-note`).value = '';
+        syncButtons();
+        byId(`${env}-note`).focus();
+      });
     }
   };
 
@@ -664,6 +686,8 @@
   const deployEnv = async (env) => {
     const note = byId(`${env}-note`).value.trim();
     const count = pendingCounts[env];
+    deploying.add(env);
+    syncButtons();
     const confirmed = await openConfirm(env, {
       message: `Deploy ${count} commit(s) to ${env.toUpperCase()}?`,
       sync: env === 'test',
@@ -671,6 +695,8 @@
       yesLabel: 'Deploy'
     });
     if (!confirmed) {
+      deploying.delete(env);
+      syncButtons();
       return;
     }
     setBusy(env, true);
@@ -694,6 +720,7 @@
     } catch (err) {
       setStatus(env, fail(err));
     }
+    deploying.delete(env);
     setBusy(env, false);
     syncButtons();
     refreshDownstream(env);

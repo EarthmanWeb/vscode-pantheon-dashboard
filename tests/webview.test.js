@@ -792,6 +792,55 @@ test('deploy › Up-to-date environment', async () => {
   assert.equal(h.text('#test-badge'), '0 pending');
 });
 
+test('deploy › Deploy note is prefilled from pending commit messages', async () => {
+  const h = load();
+  // Given 2 commits are pending for test with messages "Fix header" and "Add footer"
+  // When the test card loads
+  await boot(h, {
+    pendingTest: [
+      { hash: 'a1', author: 'Terry', datetime: '2026-10-02T10:00:00-07:00', message: 'Fix header' },
+      { hash: 'a2', author: 'Terry', datetime: '2026-10-02T11:00:00-07:00', message: 'Add footer' }
+    ]
+  });
+
+  // Then the deploy note reads "Fix header" and "Add footer" on separate lines
+  assert.equal(h.$('#test-note').value, 'Fix header\nAdd footer');
+  // Then the "Deploy Dev → Test" button is enabled
+  assert.equal(h.$('#test-deploy').disabled, false);
+});
+
+test('deploy › Edited deploy note survives a pending list reload', async () => {
+  const h = load();
+  // Given 1 commit is pending for test and the note is "Release"
+  await boot(h, { pendingTest: [{ hash: 'a1', author: 'Terry', datetime: '2026-10-02T10:00:00-07:00', message: 'x' }] });
+  h.type('#test-note', 'Release');
+
+  // When the test pending list reloads
+  h.click('#refresh');
+  const pendingMsg = await h.waitFor((m) => m.type === 'pending' && m.env === 'test' && !m._consumed);
+  h.consume(pendingMsg);
+  h.reply(pendingMsg, { type: 'pending', env: 'test', commits: [{ hash: 'a2', author: 'Terry', datetime: '2026-10-02T11:00:00-07:00', message: 'y' }] });
+  await new Promise((resolve) => setImmediate(resolve));
+
+  // Then the deploy note is still "Release"
+  assert.equal(h.$('#test-note').value, 'Release');
+});
+
+test('deploy › Clearing the deploy note', async () => {
+  const h = load();
+  // Given 1 commit is pending for test
+  await boot(h, { pendingTest: [{ hash: 'a1', author: 'Terry', datetime: '2026-10-02T10:00:00-07:00', message: 'x' }] });
+  assert.equal(h.$('#test-note').value, 'x');
+
+  // When the user clicks the clear (X) button on the deploy note
+  h.click('#test-note-clear');
+
+  // Then the deploy note is empty
+  assert.equal(h.$('#test-note').value, '');
+  // Then the "Deploy Dev → Test" button is disabled
+  assert.equal(h.$('#test-deploy').disabled, true);
+});
+
 test('deploy › Deploy button requires a note and pending commits', async () => {
   const h = load();
   // Given 1 commit is pending for test
@@ -799,7 +848,8 @@ test('deploy › Deploy button requires a note and pending commits', async () =>
     pendingTest: [{ hash: 'a1', author: 'Terry', datetime: '2026-10-02T10:00:00-07:00', message: 'x' }]
   });
 
-  // And the deploy note is empty
+  // And the deploy note is cleared
+  h.click('#test-note-clear');
   // Then the "Deploy Dev → Test" button is disabled
   assert.equal(h.$('#test-deploy').disabled, true);
   // When the user types note "Release"
@@ -908,6 +958,56 @@ test('deploy › Deploy only', async () => {
 
   // Then the deploy note is cleared after the workflows complete
   assert.equal(h.$('#test-note').value, '');
+});
+
+test('deploy › Deploy locks the note and button until the workflows complete', async () => {
+  const h = load();
+  const locked = () =>
+    ['#test-note', '#test-note-clear', '#test-deploy'].map((sel) => h.$(sel).disabled);
+  // Given 1 commit is pending for test and the note is "Release"
+  await boot(h, { pendingTest: [{ hash: 'a1', author: 'Terry', datetime: '2026-10-02T10:00:00-07:00', message: 'x' }] });
+  h.type('#test-note', 'Release');
+
+  // When the user clicks "Deploy Dev → Test"
+  h.click('#test-deploy');
+  await new Promise((resolve) => setImmediate(resolve));
+  // Then the deploy note, its clear button and the deploy button are disabled
+  assert.deepEqual(locked(), [true, true, true]);
+
+  // When the user clicks "Deploy"
+  h.click('#test-confirm-yes');
+  const deployMsg = await h.nextRequest('deploy');
+  h.consume(deployMsg);
+  // Then they stay disabled while the deploy workflows run
+  assert.deepEqual(locked(), [true, true, true]);
+
+  // When the deploy workflows complete
+  h.reply(deployMsg, { type: 'pending', commits: [{ hash: 'a2', author: 'Terry', datetime: '2026-10-02T11:00:00-07:00', message: 'y' }] });
+  const pendingLiveMsg = await h.waitFor((m) => m.type === 'pending' && m.env === 'live' && !m._consumed);
+  h.consume(pendingLiveMsg);
+  h.reply(pendingLiveMsg, { type: 'pending', env: 'live', commits: [] });
+  await new Promise((resolve) => setImmediate(resolve));
+  // Then the deploy note and its clear button are enabled
+  assert.equal(h.$('#test-note').disabled, false);
+  assert.equal(h.$('#test-note-clear').disabled, false);
+});
+
+test('deploy › Cancelling a deploy unlocks the note', async () => {
+  const h = load();
+  // Given the test deploy confirm is open
+  await boot(h, { pendingTest: [{ hash: 'a1', author: 'Terry', datetime: '2026-10-02T10:00:00-07:00', message: 'x' }] });
+  h.type('#test-note', 'Release');
+  h.click('#test-deploy');
+  await new Promise((resolve) => setImmediate(resolve));
+
+  // When the user clicks "Cancel"
+  h.click('#test-confirm-cancel');
+  await new Promise((resolve) => setImmediate(resolve));
+
+  // Then the deploy note, its clear button and the deploy button are enabled
+  assert.equal(h.$('#test-note').disabled, false);
+  assert.equal(h.$('#test-note-clear').disabled, false);
+  assert.equal(h.$('#test-deploy').disabled, false);
 });
 
 test('deploy › Deploy with clear caches only', async () => {

@@ -27,6 +27,12 @@ obligations:
 | UI settle | `media/main.js:deployEnv` | Clears note field, calls `renderPending(env, commits)`, clears spinner |
 | Downstream refresh | `media/main.js:deployEnv` -> `refreshDownstream(env)` | `DOWNSTREAM` map: `dev` -> `['test','live']`, `test` -> `['live']`, `live` -> `[]`; re-fetches pending-commit counts for every downstream env, success or failure |
 
+## Deploy note (`media/main.js`)
+
+- Prefill: `renderPending(env, commits)` sets `${env}-note` to pending commit messages joined by `\n` — ONLY when the note is empty or still equals the last prefill (`notePrefill[env]`). A user-edited note is NEVER overwritten by a pending-list reload.
+- Clear: `#${env}-note-clear` (codicon `close`, `.clearable` wrapper, absolutely positioned top-right in `media/main.css`) empties the note, calls `syncButtons()`, focuses the textarea.
+- Lock: `deployEnv` adds `env` to the `deploying` Set on click (before the confirm opens); removed on Cancel or after the deploy request settles. `syncButtons()` disables `${env}-note`, `${env}-note-clear`, `${env}-deploy` while `deploying.has(env)` or the card is `busy`.
+
 ## Envs / direction
 
 - Only `test` and `live` cards expose a deploy button (`deployCard()` in `media/main.js:skeleton`).

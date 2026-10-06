@@ -221,6 +221,22 @@ textarea {
   gap: 6px;
 }
 
+/* Textarea with an absolutely-positioned clear (X) button top-right */
+.clearable {
+  position: relative;
+}
+
+.clearable textarea {
+  display: block;
+  padding-right: 26px;
+}
+
+.clearable button.icon {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+}
+
 /* author display:flex beats the UA [hidden] rule — restore it */
 .commitbox[hidden] {
   display: none;

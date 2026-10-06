@@ -22,12 +22,43 @@ Feature: Deploying to Test and Live
     Then the test card reads "Up to date with dev — nothing to deploy."
     And the badge reads "0 pending"
 
+  Scenario: Deploy note is prefilled from pending commit messages
+    Given 2 commits are pending for test with messages "Fix header" and "Add footer"
+    When the test card loads
+    Then the deploy note reads "Fix header" and "Add footer" on separate lines
+    And the "Deploy Dev → Test" button is enabled
+
+  Scenario: Edited deploy note survives a pending list reload
+    Given 1 commit is pending for test and the note is "Release"
+    When the test pending list reloads
+    Then the deploy note is still "Release"
+
+  Scenario: Clearing the deploy note
+    Given 1 commit is pending for test
+    When the user clicks the clear (X) button on the deploy note
+    Then the deploy note is empty
+    And the "Deploy Dev → Test" button is disabled
+
   Scenario: Deploy button requires a note and pending commits
     Given 1 commit is pending for test
-    And the deploy note is empty
+    And the deploy note is cleared
     Then the "Deploy Dev → Test" button is disabled
     When the user types note "Release"
     Then the "Deploy Dev → Test" button is enabled
+
+  Scenario: Deploy locks the note and button until the workflows complete
+    Given 1 commit is pending for test and the note is "Release"
+    When the user clicks "Deploy Dev → Test"
+    Then the deploy note, its clear button and the deploy button are disabled
+    When the user clicks "Deploy"
+    Then they stay disabled while the deploy workflows run
+    When the deploy workflows complete
+    Then the deploy note and its clear button are enabled
+
+  Scenario: Cancelling a deploy unlocks the note
+    Given the test deploy confirm is open
+    When the user clicks "Cancel"
+    Then the deploy note, its clear button and the deploy button are enabled
 
   Scenario: Test deploy asks inline with sync options
     Given 1 commit is pending for test and the note is "Release"
