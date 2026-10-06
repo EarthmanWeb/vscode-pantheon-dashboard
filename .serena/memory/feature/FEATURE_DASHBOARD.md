@@ -80,7 +80,7 @@ Destructive confirms (mode-switch discard, clear-cache, content sync, push, depl
 | `clearCache`    | `clearCache`                                 | `cacheCleared`                    | Webview gates this behind its own inline confirm BEFORE sending |
 | `push`          | `push` + (`cloneContent` or `clearCache`, optional) + `unpushedCommits` | `unpushed` (branch, commits) | Webview gates this behind its own inline confirm BEFORE sending; `cloneContent` runs when `msg.sync` set, else `clearCache` when `msg.cc` set |
 | `pending`       | `pendingCommits`                             | `pending` (env, commits)          |       |
-| `workflows`     | `activeWorkflows`                            | `workflows` (active: `{env: [names]}`) | Background poll every 5s from `pollWorkflows`; drives card spinners for workflows of any origin (see `mem:dom/DOM_DASHBOARD_WORKFLOW_POLLING`) |
+| `workflows`     | `activeWorkflows`                            | `workflows` (active: `{env: [names]}`, finished: `{env: id}`) | Adaptive background poll from `pollWorkflows` (5s busy/active, 15s idle, immediate on panel visible); drives card spinners for workflows of any origin (see `mem:dom/DOM_DASHBOARD_WORKFLOW_POLLING`) |
 | `deploy`        | `deploy` + (`cloneContent`, optional) + `pendingCommits` | `pending` (env, commits)  | Webview gates this behind its own inline confirm BEFORE sending; `cc: msg.cc && !msg.sync` passed to `deploy()`; `cc` rides the trailing `cloneContent` call instead when `msg.sync` is set |
 
 - Error propagation: any thrown error in `handle()` is caught by `route()` and posted as `{ type: 'error', requestId, message: err.message }`; the webview bridge rejects the pending request promise, and callers render it with `fail()` into the card's status area.
@@ -91,11 +91,12 @@ Destructive confirms (mode-switch discard, clear-cache, content sync, push, depl
 | ---------------- | ------------------------------------------------------------------------------ |
 | `extension.js`   | `activate`, `isPantheonWorkspace`                                            |
 | `src/shell.js`   | `run(bin, args, cwd)` — login-shell `execFile` wrapper                       |
-| `src/api.js`     | `PantheonApi` (constructor, `terminus`, `terminusJson`, `git`, `whoami`, `listSites`, `listMultidevs`, `connectionMode`, `setMode`, `diffstat`, `commit`, `unpushedCommits`, `pendingCommits`, `deploy`, `clearCache`, `cloneContent`, `push`, `waitForEnv`); `matchSite` |
+| `src/api.js`     | `PantheonApi` (constructor, `terminus`, `terminusJson`, `git`, `whoami`, `listSites`, `listMultidevs`, `connectionMode`, `setMode`, `diffstat`, `commit`, `unpushedCommits`, `pendingCommits`, `logCommits`, `deploy`, `clearCache`, `cloneContent`, `push`, `workflowList`, `activeWorkflows`, `waitForEnv`); `matchSite` |
 | `src/panel.js`   | `DashboardViewProvider` (`resolveWebviewView`, `route`, `handle`, `resolveSite`, `html`), `workspaceRoot` |
 | `media/main.js`  | `request`/`inflight` map (requestId bridge), `skeleton`, `refreshAll`, `refreshDev`, `refreshEnvs`, `refreshPending`, `refreshDownstream`, `openConfirm`/`closeConfirm`/`confirmFieldsHtml` (inline confirm panel), action handlers (`switchMode`/`requestSetMode`, `clearCache`, `syncContent`/`toggleSyncConfirm`, `syncDev`, `commitDev`, `deployEnv`), `init` |
 | `media/main.css` | VS Code theme-variable-only styling, no hardcoded colors                     |
 | `package.json`   | `contributes` (commands, viewsContainers, views, configuration), `activationEvents` |
+| `.prettierrc`    | Prettier config matching project style: `singleQuote: true`, `semi: true`, `tabWidth: 2`, `trailingComma: "none"` |
 
 ## Related Memories
 

@@ -39,8 +39,10 @@ obligations:
 
 ## Background Workflow Watch (any origin)
 
-- Host: `src/api.js:PantheonApi.activeWorkflows(site)` — ONE `workflow:list <site>` call, returns `{ active, finished }`. `active` = `{ <env>: [<workflow name>, ...] }` for non-terminal workflows not matching `BACKGROUND_WORKFLOWS`; `{}` when none. `finished` = `{ <env>: <id> }` — id of the newest (largest `finished_at`) terminal (succeeded/failed/aborted) non-`BACKGROUND_WORKFLOWS` workflow on that env; env absent when none. Read-only, NEVER calls `waitForEnv`. Routed by `src/panel.js` `case 'workflows'` → `{ type: 'workflows', active, finished }`.
-- Webview: `media/main.js:pollWorkflows` every `WORKFLOW_POLL_MS` (5000ms), started in `init()`; skips a tick while a poll is in flight, `document.hidden`, or no `state.site`.
+- Single-flight list (`src/api.js:202-211` `workflowList(site)`): records `this.workflowListInflight = { site, promise }`, cleared in `.finally` when still the same entry. `activeWorkflows` (`:217-221`) reuses that in-flight promise when `inflight.site === site`, else calls `workflowList`. `waitForEnv` (`:293`) ALWAYS calls `workflowList` directly — NEVER joins an older call, so its data NEVER predates the mutation it waits on.
+- Host: `src/api.js:PantheonApi.activeWorkflows(site)` — ONE (possibly shared in-flight) `workflow:list <site>` call, returns `{ active, finished }`. `active` = `{ <env>: [<workflow name>, ...] }` for non-terminal workflows not matching `BACKGROUND_WORKFLOWS`; `{}` when none. `finished` = `{ <env>: <id> }` — id of the newest (largest `finished_at`) terminal (succeeded/failed/aborted) non-`BACKGROUND_WORKFLOWS` workflow on that env; env absent when none. Read-only, NEVER calls `waitForEnv`. Routed by `src/panel.js` `case 'workflows'` → `{ type: 'workflows', active, finished }`.
+- Webview: `media/main.js:pollWorkflows` (`:648`), started in `init()` via `startWorkflowPolling`; skips a tick while a poll is in flight, `document.hidden`, or no `state.site`.
+- Cadence: self-scheduling `setTimeout` chain (`scheduleWorkflowPoll`, single timer) — `WORKFLOW_POLL_MS` = 5000ms while any workflow is active (`anyActive`), any card is watched, or any card has class `busy`; `WORKFLOW_IDLE_POLL_MS` = 15000ms otherwise (`workflowPollDelay`; constants `media/main.js:638-639`). First tick 5000ms after start. `visibilitychange` to visible → clear timer, poll immediately, reschedule (`:726-731`).
 - Card env: `cardEnv(key)` — dev card → `state.devEnv` (dev or selected multidev), test/live → key.
 - Watch start: card idle (not busy, not watched) and `active[env]` non-empty → `watching[key] = env`, `setBusy(key, true)`, spinner `<names> running on <env>…`.
 - Watch end: first poll with no active workflow on the watched env, or dev-card env changed → clear watch, `setBusy(false)`, clear status, `syncButtons()`, reload via the local `reload(key)` helper (`refreshDev` / `refreshPending`, then `refreshDownstream(key)`).
@@ -49,11 +51,11 @@ obligations:
 
 ### Settle detection (finished id)
 
-- Webview keeps `lastFinished` (env→id) + `baselined`.
+- Response carries `finished` = `{ <env>: <id of newest terminal workflow by finished_at> }` (`src/api.js:226-239`). Webview keeps `lastFinished` (env→id) + `baselined`; both updated at the end of every successful poll (`media/main.js:696-697`).
 - First successful poll only records the baseline — NO refresh.
-- Later polls: card idle (not watching, not busy), no active workflow on its env, and `finished[env]` changed → `reload(key)` (card reload + `refreshDownstream`).
+- Later polls (`media/main.js:686-692`): `baselined`, card idle (not watching, not busy), no active workflow on its env, and `finished[cardEnv(key)] !== lastFinished[cardEnv(key)]` → `reload(key)` (card reload + `refreshDownstream`). A changed id fires even when the workflow started and ended between two polls (never seen as active).
 - Skip a key whose watch ended this poll (no double refresh).
-- Covers: workflows that start+finish between two 5s polls; workflows that ran while `document.hidden` (baseline survives hidden ticks; first visible poll catches it); failed/aborted runs.
+- Covers: workflows that start+finish between two polls (5s busy / 15s idle); workflows that ran while `document.hidden` (baseline survives hidden ticks; first visible poll catches it); failed/aborted runs.
 - Poll error leaves the baseline unchanged.
 - A card busy with its own op is NOT refreshed by this path.
 - Accepted: one redundant refresh possible after a card's own op when no poll fell between workflow end and op settle.

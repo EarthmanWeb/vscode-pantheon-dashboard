@@ -43,11 +43,11 @@ Why git: Terminus 4.1.1 `env:code-log --format=json` truncates every commit mess
 
 | Behaviour | Code location (file:function) | Notes |
 | --- | --- | --- |
-| List pending | `src/api.js:PantheonApi.pendingCommits(site, env)` | `site` unused. test = `<latest pantheon_test tag>..<remote>/master`; live = `<latest pantheon_live tag>..<latest pantheon_test tag>`. Returns `{hash, author, datetime, message}[]` via `logCommits` |
+| List pending | `src/api.js:PantheonApi.pendingCommits(site, env)` (`:187-200`) | `site` unused. test = `<testTag>..<remote>/master`; live = `<liveTag>..<testTag>` (tags = latest `pantheon_test` / `pantheon_live`). Both call `logCommits(range, ['--first-parent'])` — first-parent history only (merge commits listed, merged-in branch commits omitted). Full commit subjects. Returns `{hash, author, datetime, message}[]` |
 | Find Pantheon remote | `src/api.js:PantheonApi.pantheonRemote` | Parses `git remote -v`; first remote whose URL matches `ssh://[<user>@]codeserver.dev.<site-id>.drush.in:2222/~/repository.git`. Matches by URL, never by name. No match -> Error "No Pantheon git remote (ssh://codeserver.dev.<site-id>@codeserver.dev.<site-id>.drush.in:2222/~/repository.git) in this workspace" |
 | Fetch | `src/api.js:PantheonApi.fetchPantheon` | `git fetch <remote> master --tags`; in-flight promise `this.pantheonFetch` shared so concurrent Test and Live refreshes run one fetch; cleared on settle |
 | Latest deploy tag | `src/api.js:PantheonApi.latestDeployTag(env)` | `git tag -l pantheon_<env>_* --sort=-v:refname`, first line (numeric order; lexical would put 999 above 1000). No tag -> Error "No pantheon_<env>_* deploy tag in this repository" |
-| Git log | `src/api.js:PantheonApi.logCommits(range)` | `git log <range> --date=iso-strict --format=%H%x1f%an%x1f%ad%x1f%s` -> `{hash, author, datetime, message}`; shared with `unpushedCommits` |
+| Git log | `src/api.js:PantheonApi.logCommits(range, extra = [])` (`:119`) | `git log <range> --date=iso-strict --format=%H%x1f%an%x1f%ad%x1f%s ...extra` -> `{hash, author, datetime, message}`; shared with `unpushedCommits` (extra empty — unpushed keeps FULL history, NO `--first-parent`); `pendingCommits` passes `['--first-parent']` |
 | Route | `src/panel.js:handle` case `'pending'` | Returns `{ type: 'pending', env, commits }` |
 | Deploy | `src/api.js:PantheonApi.deploy` | See `mem:dom/DOM_DASHBOARD_DEPLOYS` for full deploy + inline-confirm flow |
 | Render | `media/main.js:renderPending` | Sets `pendingCounts[env]`, updates `${env}-badge` text to `"N pending"`, empty-state "Up to date with {source}" |
@@ -68,8 +68,8 @@ Why git: Terminus 4.1.1 `env:code-log --format=json` truncates every commit mess
 - `git remote -v`
 - `git fetch <pantheon-remote> master --tags`
 - `git tag -l pantheon_<env>_* --sort=-v:refname`
-- `git log <testTag>..<remote>/master`
-- `git log <liveTag>..<testTag>`
+- `git log <testTag>..<remote>/master --date=iso-strict --format=... --first-parent`
+- `git log <liveTag>..<testTag> --date=iso-strict --format=... --first-parent`
 - `git fetch origin <branch>`
 - `git log origin/<branch>..<branch> --date=iso-strict --format=%H%x1f%an%x1f%ad%x1f%s`
 - `git push origin <branch>`
