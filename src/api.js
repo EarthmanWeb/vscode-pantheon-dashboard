@@ -112,9 +112,13 @@ class PantheonApi {
     if (fetch) {
       await this.git(['fetch', 'origin', branch]);
     }
+    return this.logCommits(`origin/${branch}..${branch}`);
+  }
+
+  async logCommits(range) {
     const out = await this.git([
       'log',
-      `origin/${branch}..${branch}`,
+      range,
       '--date=iso-strict',
       '--format=%H%x1f%an%x1f%ad%x1f%s'
     ]);
@@ -127,16 +131,65 @@ class PantheonApi {
       });
   }
 
-  // Pantheon's code log labels each commit with the envs it has reached.
-  // Pending for test = on dev, not on test. Pending for live = on test,
-  // not on live (env:deploy live ships test's code).
-  async pendingCommits(site, env) {
-    const source = env === 'test' ? 'dev' : 'test';
-    const log = await this.terminusJson(['env:code-log', `${site}.${source}`]);
-    return log.filter((commit) => {
-      const labels = commit.labels.split(',').map((label) => label.trim());
-      return labels.includes(source) && !labels.includes(env);
+  // Name of the first git remote whose URL is the Pantheon codeserver. The
+  // name varies (origin, pantheon, ...), so match on URL only.
+  async pantheonRemote() {
+    const out = await this.git(['remote', '-v']);
+    const pattern =
+      /^ssh:\/\/codeserver\.dev\.[^.]+\.drush\.in:2222\/~\/repository\.git$/;
+    for (const line of out.split('\n')) {
+      const [name, url] = line.split(/\s+/);
+      if (name && pattern.test(url || '')) {
+        return name;
+      }
+    }
+    throw new Error(
+      'No Pantheon git remote (ssh://codeserver.dev.<site-id>.drush.in:2222/~/repository.git) in this workspace'
+    );
+  }
+
+  // One fetch shared by concurrent callers (Test and Live load together).
+  fetchPantheon() {
+    if (this.pantheonFetch) {
+      return this.pantheonFetch;
+    }
+    this.pantheonFetch = (async () => {
+      const remote = await this.pantheonRemote();
+      await this.git(['fetch', remote, 'master', '--tags']);
+      return remote;
+    })().finally(() => {
+      this.pantheonFetch = null;
     });
+    return this.pantheonFetch;
+  }
+
+  // Newest Pantheon deploy tag for env; numeric (version) sort.
+  async latestDeployTag(env) {
+    const out = await this.git([
+      'tag',
+      '-l',
+      `pantheon_${env}_*`,
+      '--sort=-v:refname'
+    ]);
+    const tag = out.split('\n').find(Boolean);
+    if (!tag) {
+      throw new Error(`No pantheon_${env}_* deploy tag in this repository`);
+    }
+    return tag;
+  }
+
+  // Terminus code-log truncates commit messages to 50 chars, so Pantheon's
+  // git deploy tags are the source. Pending for test = pantheon master past
+  // the latest test tag. Pending for live = latest test tag past the latest
+  // live tag (env:deploy live ships test's code).
+  async pendingCommits(site, env) {
+    const remote = await this.fetchPantheon();
+    const testTag = await this.latestDeployTag('test');
+    if (env === 'test') {
+      return this.logCommits(`${testTag}..${remote}/master`);
+    }
+    const liveTag = await this.latestDeployTag('live');
+    return this.logCommits(`${liveTag}..${testTag}`);
   }
 
   // Per env (any origin), excluding Pantheon housekeeping: `active` = names of

@@ -145,62 +145,179 @@ test('connection-mode › Committing SFTP changes (commit sends message then wai
 
 // ── dashboard-deploy.feature ──
 
-test('deploy › Pending commits for an environment: test sees dev-only commit as pending', async () => {
-  const log = JSON.stringify([
-    { hash: '1', labels: 'dev', message: 'pending' },
-    { hash: '2', labels: 'test, live, dev', message: 'deployed' }
-  ]);
-  const api = new PantheonApi('/tmp', {
-    run: async (bin, args) => {
-      assert.deepEqual(args.slice(0, 2), ['env:code-log', 'site.dev']);
-      return log;
+const PANTHEON_URL =
+  'ssh://codeserver.dev.11111111-1111-4111-8111-111111111111.drush.in:2222/~/repository.git';
+const GITHUB_URL = 'git@github.com:example-org/example-repo.git';
+const LONG_MESSAGE =
+  'Merge pull request #1 from example-org/feature-branch-with-a-long-name';
+const REMOTES = [
+  `origin\t${GITHUB_URL} (fetch)`,
+  `origin\t${GITHUB_URL} (push)`,
+  `pantheon\t${PANTHEON_URL} (fetch)`,
+  `pantheon\t${PANTHEON_URL} (push)`
+].join('\n');
+
+// Stub runner dispatching on the git subcommand; records every call.
+function pendingStub(overrides = {}) {
+  const calls = [];
+  const tags = overrides.tags || {
+    test: ['pantheon_test_1000', 'pantheon_test_999'],
+    live: ['pantheon_live_998', 'pantheon_live_997']
+  };
+  const run = async (bin, args) => {
+    calls.push({ bin, args });
+    if (bin !== 'git') {
+      throw new Error(`unexpected ${bin}`);
     }
-  });
+    if (args[0] === 'remote') {
+      return overrides.remotes === undefined ? REMOTES : overrides.remotes;
+    }
+    if (args[0] === 'fetch') {
+      if (overrides.fetchError) {
+        throw new Error(overrides.fetchError);
+      }
+      return '';
+    }
+    if (args[0] === 'tag') {
+      const env = args[2].split('_')[1];
+      return (tags[env] || []).join('\n') + '\n';
+    }
+    if (args[0] === 'log') {
+      return (
+        [
+          'aaa111',
+          'Example Author',
+          '2026-01-01T00:00:00+00:00',
+          LONG_MESSAGE
+        ].join('\x1f') + '\n'
+      );
+    }
+    throw new Error(`unexpected git ${args[0]}`);
+  };
+  return { calls, run };
+}
+const gitCalls = (calls, sub) => calls.filter((c) => c.args[0] === sub);
+
+test('deploy › Test pending commits come from git with full messages', async () => {
+  // Given the Pantheon remote is named "pantheon" and origin is GitHub
+  const { calls, run } = pendingStub();
+  const api = new PantheonApi('/tmp', { run });
+  // When the test card loads
   const commits = await api.pendingCommits('site', 'test');
-  // Then the commit is pending for test
-  assert.deepEqual(
-    commits.map((c) => c.hash),
-    ['1']
+  // Then pantheon master is fetched with tags
+  assert.deepEqual(gitCalls(calls, 'fetch')[0].args, [
+    'fetch',
+    'pantheon',
+    'master',
+    '--tags'
+  ]);
+  // And the commits in the test tag..pantheon/master range are pending
+  assert.equal(
+    gitCalls(calls, 'log')[0].args[1],
+    'pantheon_test_1000..pantheon/master'
+  );
+  // And a message longer than 50 characters is returned in full
+  assert.ok(LONG_MESSAGE.length > 50);
+  assert.deepEqual(commits, [
+    {
+      hash: 'aaa111',
+      author: 'Example Author',
+      datetime: '2026-01-01T00:00:00+00:00',
+      message: LONG_MESSAGE
+    }
+  ]);
+});
+
+test('deploy › Live pending commits come from git', async () => {
+  // Given the latest deploy tags are pantheon_test_1000 and pantheon_live_998
+  const { calls, run } = pendingStub();
+  const api = new PantheonApi('/tmp', { run });
+  // When the live card loads
+  await api.pendingCommits('site', 'live');
+  // Then the commits in pantheon_live_998..pantheon_test_1000 are pending
+  assert.equal(
+    gitCalls(calls, 'log')[0].args[1],
+    'pantheon_live_998..pantheon_test_1000'
   );
 });
 
-test('deploy › Pending commits for an environment: test excludes commit already on test', async () => {
-  const log = JSON.stringify([
-    { hash: '2', labels: 'test, live, dev', message: 'deployed' }
-  ]);
-  const api = new PantheonApi('/tmp', { run: async () => log });
-  const commits = await api.pendingCommits('site', 'test');
-  // Then the commit is not pending for test
-  assert.deepEqual(commits, []);
-});
-
-test('deploy › Pending commits for an environment: live reads the test code log', async () => {
-  const log = JSON.stringify([
-    { hash: '1', labels: 'test, dev', message: 'pending live' },
-    { hash: '2', labels: 'test, live, dev', message: 'deployed' }
-  ]);
-  const api = new PantheonApi('/tmp', {
-    run: async (bin, args) => {
-      assert.equal(args[1], 'site.test');
-      return log;
-    }
-  });
-  const commits = await api.pendingCommits('site', 'live');
-  // Then the commit is pending for live
-  assert.deepEqual(
-    commits.map((c) => c.hash),
-    ['1']
+test('deploy › Deploy tags sort numerically', async () => {
+  // Given the deploy tags for test are pantheon_test_999 and pantheon_test_1000
+  const { calls, run } = pendingStub();
+  const api = new PantheonApi('/tmp', { run });
+  // When the test card loads
+  await api.pendingCommits('site', 'test');
+  // Then the tags are listed with --sort=-v:refname
+  assert.ok(gitCalls(calls, 'tag')[0].args.includes('--sort=-v:refname'));
+  // And the range starts at pantheon_test_1000
+  assert.ok(
+    gitCalls(calls, 'log')[0].args[1].startsWith('pantheon_test_1000..')
   );
 });
 
-test('deploy › Pending commits for an environment: live excludes commit already on live', async () => {
-  const log = JSON.stringify([
-    { hash: '2', labels: 'test, live, dev', message: 'deployed' }
+test('deploy › Pantheon remote is detected by URL', async () => {
+  // Given origin is a GitHub remote and "pantheon" has the Pantheon URL
+  const { calls, run } = pendingStub();
+  const api = new PantheonApi('/tmp', { run });
+  // When the test card loads
+  await api.pendingCommits('site', 'test');
+  // Then the fetch targets the "pantheon" remote
+  assert.equal(gitCalls(calls, 'fetch')[0].args[1], 'pantheon');
+});
+
+test('deploy › No Pantheon remote', async () => {
+  // Given no remote has the Pantheon codeserver URL
+  const { calls, run } = pendingStub({
+    remotes: `origin\t${GITHUB_URL} (fetch)\norigin\t${GITHUB_URL} (push)`
+  });
+  const api = new PantheonApi('/tmp', { run });
+  // When the test card loads / Then it fails with the clear message
+  await assert.rejects(
+    api.pendingCommits('site', 'test'),
+    new Error(
+      'No Pantheon git remote (ssh://codeserver.dev.<site-id>.drush.in:2222/~/repository.git) in this workspace'
+    )
+  );
+  // And no fetch is run
+  assert.equal(gitCalls(calls, 'fetch').length, 0);
+});
+
+test('deploy › Fetch failure surfaces', async () => {
+  // Given the Pantheon fetch fails
+  const { run } = pendingStub({
+    fetchError: 'fatal: Could not read from remote repository.'
+  });
+  const api = new PantheonApi('/tmp', { run });
+  // When the test card loads / Then it fails with that message
+  await assert.rejects(
+    api.pendingCommits('site', 'test'),
+    /fatal: Could not read from remote repository\./
+  );
+});
+
+test('deploy › No deploy tag', async () => {
+  // Given the repository has no pantheon_test_* tag
+  const { run } = pendingStub({ tags: { test: [], live: [] } });
+  const api = new PantheonApi('/tmp', { run });
+  // When the test card loads / Then it fails with the clear message
+  await assert.rejects(
+    api.pendingCommits('site', 'test'),
+    new Error('No pantheon_test_* deploy tag in this repository')
+  );
+});
+
+test('deploy › Test and Live loading together share one fetch', async () => {
+  const { calls, run } = pendingStub();
+  const api = new PantheonApi('/tmp', { run });
+  // When the test and live cards load at the same time
+  await Promise.all([
+    api.pendingCommits('site', 'test'),
+    api.pendingCommits('site', 'live')
   ]);
-  const api = new PantheonApi('/tmp', { run: async () => log });
-  const commits = await api.pendingCommits('site', 'live');
-  // Then the commit is not pending for live
-  assert.deepEqual(commits, []);
+  // Then exactly one fetch runs
+  assert.equal(gitCalls(calls, 'fetch').length, 1);
+  // And no terminus command is run
+  assert.equal(calls.filter((c) => c.bin !== 'git').length, 0);
 });
 
 test('deploy › Deploy only (deploy passes the note then waits for workflows, no --cc)', async () => {

@@ -4,17 +4,50 @@ Feature: Deploying to Test and Live
   inline confirm. Test deploys can sync content and clear caches afterwards;
   Live deploys can clear caches only.
 
-  Scenario Outline: Pending commits for an environment
-    Given the <source> code log has a commit labelled "<labels>"
-    When the <env> card loads
-    Then the commit <listed> pending for <env>
+  Scenario: Test pending commits come from git with full messages
+    Given the Pantheon remote is named "pantheon" and origin is a GitHub remote
+    And the latest deploy tag for test is "pantheon_test_1000"
+    When the test card loads
+    Then pantheon master is fetched with tags
+    And the commits in "pantheon_test_1000..pantheon/master" are pending for test
+    And a message longer than 50 characters is returned in full
 
-    Examples:
-      | env  | source | labels          | listed |
-      | test | dev    | dev             | is     |
-      | test | dev    | test, live, dev | is not |
-      | live | test   | test, dev       | is     |
-      | live | test   | test, live, dev | is not |
+  Scenario: Live pending commits come from git
+    Given the latest deploy tags are "pantheon_test_1000" and "pantheon_live_998"
+    When the live card loads
+    Then the commits in "pantheon_live_998..pantheon_test_1000" are pending for live
+
+  Scenario: Deploy tags sort numerically
+    Given the deploy tags for test are "pantheon_test_999" and "pantheon_test_1000"
+    When the test card loads
+    Then the tags are listed with "--sort=-v:refname"
+    And the range starts at "pantheon_test_1000"
+
+  Scenario: Pantheon remote is detected by URL
+    Given origin is a GitHub remote and "pantheon" has the Pantheon codeserver URL
+    When the test card loads
+    Then the fetch targets the "pantheon" remote
+
+  Scenario: No Pantheon remote
+    Given no remote has the Pantheon codeserver URL
+    When the test card loads
+    Then it fails with "No Pantheon git remote (ssh://codeserver.dev.<site-id>.drush.in:2222/~/repository.git) in this workspace"
+    And no fetch is run
+
+  Scenario: Fetch failure surfaces
+    Given the Pantheon fetch fails with "fatal: Could not read from remote repository."
+    When the test card loads
+    Then it fails with "fatal: Could not read from remote repository."
+
+  Scenario: No deploy tag
+    Given the repository has no pantheon_test_* tag
+    When the test card loads
+    Then it fails with "No pantheon_test_* deploy tag in this repository"
+
+  Scenario: Test and Live loading together share one fetch
+    When the test and live cards load at the same time
+    Then exactly one fetch runs
+    And no terminus command is run
 
   Scenario: Up-to-date environment
     Given nothing is pending for test
