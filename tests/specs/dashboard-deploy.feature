@@ -31,7 +31,7 @@ Feature: Deploying to Test and Live
   Scenario: No Pantheon remote
     Given no remote has the Pantheon codeserver URL
     When the test card loads
-    Then it fails with "No Pantheon git remote (ssh://codeserver.dev.<site-id>.drush.in:2222/~/repository.git) in this workspace"
+    Then it fails with "No Pantheon git remote (ssh://codeserver.dev.<site-id>@codeserver.dev.<site-id>.drush.in:2222/~/repository.git) in this workspace"
     And no fetch is run
 
   Scenario: Fetch failure surfaces

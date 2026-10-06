@@ -136,7 +136,7 @@ class PantheonApi {
   async pantheonRemote() {
     const out = await this.git(['remote', '-v']);
     const pattern =
-      /^ssh:\/\/codeserver\.dev\.[^.]+\.drush\.in:2222\/~\/repository\.git$/;
+      /^ssh:\/\/(?:[^@/\s]+@)?codeserver\.dev\.[^./\s]+\.drush\.in:2222\/~\/repository\.git$/;
     for (const line of out.split('\n')) {
       const [name, url] = line.split(/\s+/);
       if (name && pattern.test(url || '')) {
@@ -144,7 +144,7 @@ class PantheonApi {
       }
     }
     throw new Error(
-      'No Pantheon git remote (ssh://codeserver.dev.<site-id>.drush.in:2222/~/repository.git) in this workspace'
+      'No Pantheon git remote (ssh://codeserver.dev.<site-id>@codeserver.dev.<site-id>.drush.in:2222/~/repository.git) in this workspace'
     );
   }
 

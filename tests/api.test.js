@@ -146,7 +146,7 @@ test('connection-mode › Committing SFTP changes (commit sends message then wai
 // ── dashboard-deploy.feature ──
 
 const PANTHEON_URL =
-  'ssh://codeserver.dev.11111111-1111-4111-8111-111111111111.drush.in:2222/~/repository.git';
+  'ssh://codeserver.dev.11111111-1111-4111-8111-111111111111@codeserver.dev.11111111-1111-4111-8111-111111111111.drush.in:2222/~/repository.git';
 const GITHUB_URL = 'git@github.com:example-org/example-repo.git';
 const LONG_MESSAGE =
   'Merge pull request #1 from example-org/feature-branch-with-a-long-name';
@@ -275,7 +275,7 @@ test('deploy › No Pantheon remote', async () => {
   await assert.rejects(
     api.pendingCommits('site', 'test'),
     new Error(
-      'No Pantheon git remote (ssh://codeserver.dev.<site-id>.drush.in:2222/~/repository.git) in this workspace'
+      'No Pantheon git remote (ssh://codeserver.dev.<site-id>@codeserver.dev.<site-id>.drush.in:2222/~/repository.git) in this workspace'
     )
   );
   // And no fetch is run
