@@ -139,6 +139,22 @@ class PantheonApi {
     });
   }
 
+  // Running workflows per env (any origin), excluding Pantheon housekeeping.
+  async activeWorkflows(site) {
+    const flows = await this.terminusJson(['workflow:list', site]);
+    const active = {};
+    for (const w of Object.values(flows)) {
+      if (
+        TERMINAL_STATUSES.has(w.status) ||
+        BACKGROUND_WORKFLOWS.test(w.workflow)
+      ) {
+        continue;
+      }
+      (active[w.env] ||= []).push(w.workflow);
+    }
+    return active;
+  }
+
   async deploy(site, env, note, { cc = false } = {}) {
     const args = ['env:deploy', `${site}.${env}`, `--note=${note}`];
     if (cc) {

@@ -615,6 +615,63 @@
     polling = false;
   };
 
+  // Background check for Pantheon workflows running on a card's env —
+  // including ones started outside VS Code. While any is active the card
+  // shows a spinner; the first poll that sees none clears it and reloads the
+  // card. A card busy with its own operation is left alone.
+  const WORKFLOW_POLL_MS = 5000;
+  let workflowPolling = false;
+  // card key -> env whose workflows its spinner is following.
+  const watching = {};
+  const cardEnv = (key) => (key === 'dev' ? state.devEnv : key);
+  const pollWorkflows = async () => {
+    if (workflowPolling || document.hidden || !state.site) {
+      return;
+    }
+    workflowPolling = true;
+    const idle = (key) =>
+      !watching[key] && !byId(`card-${key}`).classList.contains('busy');
+    try {
+      const { active } = await request({
+        type: 'workflows',
+        site: state.site
+      });
+      for (const key of ['dev', 'test', 'live']) {
+        const names = active[watching[key] || cardEnv(key)] || [];
+        const label = (env) => spin(`${names.join(', ')} running on ${env}…`);
+        if (idle(key) && names.length) {
+          watching[key] = cardEnv(key);
+          setBusy(key, true);
+          setStatus(key, label(watching[key]));
+        } else if (
+          watching[key] &&
+          names.length &&
+          cardEnv(key) === watching[key]
+        ) {
+          setStatus(key, label(watching[key]));
+        } else if (watching[key]) {
+          delete watching[key];
+          setBusy(key, false);
+          setStatus(key, '');
+          syncButtons();
+          if (key === 'dev') {
+            refreshDev();
+          } else {
+            refreshPending(key);
+          }
+          refreshDownstream(key);
+        }
+      }
+    } catch (err) {
+      for (const key of ['dev', 'test', 'live']) {
+        if (idle(key)) {
+          setStatus(key, fail(err));
+        }
+      }
+    }
+    workflowPolling = false;
+  };
+
   // After a card's workflow settles (spinner cleared), reload the commit lists
   // of every env downstream of it — on failure too, since Pantheon may have
   // applied part of the change. dev → test → live; a multidev feeds nothing.
@@ -740,6 +797,7 @@
       skeleton();
       refreshAll();
       setInterval(pollUnpushed, LOCAL_POLL_MS);
+      setInterval(pollWorkflows, WORKFLOW_POLL_MS);
     } catch (err) {
       app.innerHTML = `<div class="center">${fail(err)}</div>`;
     }

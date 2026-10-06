@@ -37,6 +37,16 @@ obligations:
 
 `listSites`, `listMultidevs`, `connectionMode`, `diffstat`, `unpushedCommits`, `pendingCommits`, `whoami` are read-only and do NOT call `waitForEnv`.
 
+## Background Workflow Watch (any origin)
+
+- Host: `src/api.js:PantheonApi.activeWorkflows(site)` — ONE `workflow:list <site>` call, returns `{ <env>: [<workflow name>, ...] }` for non-terminal workflows not matching `BACKGROUND_WORKFLOWS`; `{}` when none. Read-only, NEVER calls `waitForEnv`. Routed by `src/panel.js` `case 'workflows'` → `{ type: 'workflows', active }`.
+- Webview: `media/main.js:pollWorkflows` every `WORKFLOW_POLL_MS` (5000ms), started in `init()`; skips a tick while a poll is in flight, `document.hidden`, or no `state.site`.
+- Card env: `cardEnv(key)` — dev card → `state.devEnv` (dev or selected multidev), test/live → key.
+- Watch start: card idle (not busy, not watched) and `active[env]` non-empty → `watching[key] = env`, `setBusy(key, true)`, spinner `<names> running on <env>…`.
+- Watch end: first poll with no active workflow on the watched env, or dev-card env changed → clear watch, `setBusy(false)`, clear status, `syncButtons()`, reload the card (`refreshDev` / `refreshPending`), then `refreshDownstream(key)`.
+- A card busy with its OWN operation is never taken over — its own `waitForEnv` already drives its spinner.
+- Poll error → `fail(err)` on every idle, unwatched card.
+
 ## Downstream Refresh (`media/main.js`)
 
 - `DOWNSTREAM` map: `dev -> [test, live]`, `test -> [live]`, `live -> []`. A multidev env feeds nothing downstream.

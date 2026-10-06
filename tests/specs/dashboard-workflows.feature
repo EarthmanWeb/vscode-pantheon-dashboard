@@ -43,3 +43,41 @@ Feature: Waiting for Pantheon workflows
     Given a host operation fails with "stderr text"
     When the webview receives the error response
     Then the card that sent the request shows "stderr text"
+
+  Scenario: A deploy started elsewhere shows the test spinner
+    Given the dashboard is loaded and idle
+    When Pantheon reports "Deploy code to test" running on test
+    Then the test card shows a spinner naming the workflow
+    And the test card is busy with its buttons disabled
+    And the live card is untouched
+
+  Scenario: The spinner clears on the first poll after the workflow finishes
+    Given the test card shows a spinner for a workflow started elsewhere
+    When the next poll reports no running workflows
+    Then the workflow spinner is gone
+    And the test pending commits are requested again
+    And the test card is no longer busy
+
+  Scenario: A running workflow on the selected multidev shows the dev spinner
+    Given the dev card targets the multidev "themes"
+    When Pantheon reports a workflow running on "themes"
+    Then the dev card shows a spinner naming "themes"
+
+  Scenario: Workflows on an env not shown on any card do not show a spinner
+    Given the dashboard is loaded and the dev card targets "dev"
+    When Pantheon reports a workflow running on "themes"
+    Then no card shows a spinner
+
+  Scenario: No poll while the panel is hidden
+    Given the dashboard is loaded
+    When the panel is hidden and 5 seconds pass
+    Then no workflows request is sent
+
+  Scenario: A card running its own operation is not taken over
+    Given the test card is clearing caches
+    When a poll reports a workflow running on test
+    Then the card keeps its own spinner text
+    When the operation settles
+    Then the card is idle
+    When the next poll reports no running workflows
+    Then the card is still idle and shows no workflow spinner

@@ -150,6 +150,11 @@ class DashboardViewProvider {
           env: msg.env,
           commits: await this.api.pendingCommits(msg.site, msg.env)
         };
+      case 'workflows':
+        return {
+          type: 'workflows',
+          active: await this.api.activeWorkflows(msg.site)
+        };
       case 'deploy': {
         await this.api.deploy(msg.site, msg.env, msg.note, {
           cc: msg.cc && !msg.sync

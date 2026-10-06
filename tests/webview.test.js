@@ -1434,3 +1434,142 @@ test('workflows › Errors reach the card that started the operation', async () 
   assert.ok(!h.text('#dev-status').includes('stderr text'));
   assert.ok(!h.text('#test-status').includes('stderr text'));
 });
+
+// Advances the 5s timer, answers the resulting workflows poll with `active`
+// and lets the UI settle.
+const pollWorkflows = async (h, active) => {
+  h.tick(5000);
+  const msg = await h.nextRequest('workflows');
+  h.consume(msg);
+  h.reply(msg, { type: 'workflows', active });
+  await new Promise((resolve) => setImmediate(resolve));
+  await new Promise((resolve) => setImmediate(resolve));
+  return msg;
+};
+
+const isBusy = (h, key) => h.$(`#card-${key}`).classList.contains('busy');
+
+test('workflows › A deploy started elsewhere shows the test spinner', async () => {
+  const h = load();
+  // Given the dashboard is loaded and idle
+  await boot(h, {});
+
+  // When Pantheon reports "Deploy code to test" running on test
+  const msg = await pollWorkflows(h, { test: ['Deploy code to test'] });
+  assert.equal(msg.site, 'example-site');
+
+  // Then the test card shows a spinner naming the workflow
+  assert.ok(hasSpinner(h, 'test'));
+  assert.ok(h.text('#test-status').includes('Deploy code to test running on test'));
+  // And the test card is busy with its buttons disabled
+  assert.ok(isBusy(h, 'test'));
+  assert.equal(h.$('#test-deploy').disabled, true);
+  // And the live card is untouched
+  assert.ok(!hasSpinner(h, 'live'));
+  assert.ok(!isBusy(h, 'live'));
+});
+
+test('workflows › The spinner clears on the first poll after the workflow finishes', async () => {
+  const h = load();
+  // Given the test card shows a spinner for a workflow started elsewhere
+  await boot(h, {});
+  await pollWorkflows(h, { test: ['Deploy code to test'] });
+  assert.ok(hasSpinner(h, 'test'));
+
+  // When the next poll reports no running workflows
+  await pollWorkflows(h, {});
+
+  // Then the workflow spinner is gone
+  assert.ok(!h.text('#test-status').includes('Deploy code to test'));
+  // And the test pending commits are requested again
+  const pendingMsg = await h.nextRequest('pending');
+  assert.equal(pendingMsg.env, 'test');
+  h.consume(pendingMsg);
+  h.reply(pendingMsg, { type: 'pending', env: 'test', commits: [] });
+  await new Promise((resolve) => setImmediate(resolve));
+  // And the test card is no longer busy
+  assert.ok(!hasSpinner(h, 'test'));
+  assert.ok(!isBusy(h, 'test'));
+});
+
+test('workflows › A running workflow on the selected multidev shows the dev spinner', async () => {
+  const h = load();
+  // Given the dev card targets the multidev "themes"
+  await boot(h, { multidevs: ['themes'], devMode: 'git' });
+  const select = h.$('#dev-env');
+  select.value = 'themes';
+  select.dispatchEvent(new h.window.Event('change', { bubbles: true }));
+  const devInfoMsg = await h.nextRequest('devInfo');
+  h.consume(devInfoMsg);
+  h.reply(devInfoMsg, { type: 'devInfo', mode: 'git' });
+  const unpushedMsg = await h.nextRequest('unpushed');
+  h.consume(unpushedMsg);
+  h.reply(unpushedMsg, { type: 'unpushed', branch: 'themes', commits: [] });
+  await new Promise((resolve) => setImmediate(resolve));
+
+  // When Pantheon reports a workflow running on "themes"
+  await pollWorkflows(h, { themes: ['Sync code on themes'] });
+
+  // Then the dev card shows a spinner naming "themes"
+  assert.ok(hasSpinner(h, 'dev'));
+  assert.ok(h.text('#dev-status').includes('Sync code on themes running on themes'));
+  assert.ok(isBusy(h, 'dev'));
+});
+
+test('workflows › Workflows on an env not shown on any card do not show a spinner', async () => {
+  const h = load();
+  // Given the dashboard is loaded and the dev card targets "dev"
+  await boot(h, { multidevs: ['themes'] });
+
+  // When Pantheon reports a workflow running on "themes"
+  await pollWorkflows(h, { themes: ['Sync code on themes'] });
+
+  // Then no card shows a spinner
+  for (const key of ['dev', 'test', 'live']) {
+    assert.ok(!hasSpinner(h, key));
+    assert.ok(!isBusy(h, key));
+  }
+});
+
+test('workflows › No poll while the panel is hidden', async () => {
+  const h = load();
+  // Given the dashboard is loaded
+  await boot(h, {});
+
+  // When the panel is hidden and 5 seconds pass
+  h.setHidden(true);
+  h.tick(5000);
+  await new Promise((resolve) => setImmediate(resolve));
+
+  // Then no workflows request is sent
+  assert.equal(h.posted.filter((m) => m.type === 'workflows').length, 0);
+});
+
+test('workflows › A card running its own operation is not taken over', async () => {
+  const h = load();
+  // Given the test card is clearing caches
+  await boot(h, {});
+  h.click('[data-clear="test"]');
+  await new Promise((resolve) => setImmediate(resolve));
+  h.click('#test-confirm-yes');
+  const clearMsg = await h.nextRequest('clearCache');
+  h.consume(clearMsg);
+
+  // When a poll reports a workflow running on test
+  await pollWorkflows(h, { test: ['Clear caches on test'] });
+
+  // Then the card keeps its own spinner text
+  assert.ok(h.text('#test-status').includes('Clearing caches on test'));
+
+  // When the operation settles
+  h.reply(clearMsg, { type: 'clearCache' });
+  await new Promise((resolve) => setImmediate(resolve));
+  // Then the card is idle
+  assert.ok(!isBusy(h, 'test'));
+
+  // When the next poll reports no running workflows
+  await pollWorkflows(h, {});
+  // Then the card is still idle and shows no workflow spinner
+  assert.ok(!isBusy(h, 'test'));
+  assert.ok(!h.text('#test-status').includes('running on'));
+});

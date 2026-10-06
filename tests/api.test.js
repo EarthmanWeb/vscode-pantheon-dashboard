@@ -715,3 +715,63 @@ test('api › clearCache clears the env then waits for workflows', async () => {
   await api.clearCache('site', 'live');
   assert.deepEqual(calls, ['env:clear-cache site.live', 'workflow:list site']);
 });
+
+// ── active workflows poll ──
+
+const workflowList = (...items) =>
+  JSON.stringify(
+    Object.fromEntries(
+      items.map(([env, workflow, status], i) => [
+        `w${i}`,
+        { id: `w${i}`, env, workflow, status, started_at: Date.now() / 1000 }
+      ])
+    )
+  );
+
+const workflowsApi = (list) =>
+  new PantheonApi('/tmp', {
+    run: async (bin, args) => {
+      // Then terminus lists the site's workflows once
+      assert.deepEqual(args.slice(0, 2), ['workflow:list', 'site']);
+      return list;
+    }
+  });
+
+test('workflows › Active workflows are grouped by env', async () => {
+  const api = workflowsApi(
+    workflowList(
+      ['dev', 'Sync code on "dev"', 'running'],
+      ['dev', 'Deploy', 'succeeded'],
+      ['dev', 'Clear cache', 'failed'],
+      ['feature1', 'Sync code on "feature1"', 'running'],
+      ['test', 'Deploy code to "test"', 'running'],
+      ['test', 'Sync code', 'aborted'],
+      ['live', 'Clear cache', 'running']
+    )
+  );
+  const active = await api.activeWorkflows('site');
+  // Then only running workflows are returned, grouped by env
+  assert.deepEqual(active, {
+    dev: ['Sync code on "dev"'],
+    feature1: ['Sync code on "feature1"'],
+    test: ['Deploy code to "test"'],
+    live: ['Clear cache']
+  });
+});
+
+test('workflows › Pantheon housekeeping workflows are not reported', async () => {
+  const api = workflowsApi(
+    workflowList(
+      ['dev', 'Automated backup', 'running'],
+      ['live', 'Update the Package Index Service', 'running']
+    )
+  );
+  // Then nothing is reported
+  assert.deepEqual(await api.activeWorkflows('site'), {});
+});
+
+test('workflows › No active workflows', async () => {
+  const api = workflowsApi(workflowList(['dev', 'Deploy', 'succeeded']));
+  // Then the result is empty
+  assert.deepEqual(await api.activeWorkflows('site'), {});
+});

@@ -380,6 +380,15 @@ test('deploy › pending route', async () => {
   assert.deepEqual(api.calls[0], ['pendingCommits', 'site', 'test']);
 });
 
+test('workflows › workflows route', async () => {
+  const active = { dev: ['Sync code on "dev"'] };
+  const api = makeFakeApi({ activeWorkflows: async () => active });
+  const provider = makeProvider(api);
+  const result = await provider.handle({ type: 'workflows', site: 'site' });
+  assert.deepEqual(result, { type: 'workflows', active });
+  assert.deepEqual(api.calls[0], ['activeWorkflows', 'site']);
+});
+
 test('deploy › Deploy only (no clone)', async () => {
   const api = makeFakeApi({ pendingCommits: async () => [] });
   const provider = makeProvider(api);

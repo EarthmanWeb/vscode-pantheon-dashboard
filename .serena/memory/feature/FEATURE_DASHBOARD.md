@@ -80,6 +80,7 @@ Destructive confirms (mode-switch discard, clear-cache, content sync, push, depl
 | `clearCache`    | `clearCache`                                 | `cacheCleared`                    | Webview gates this behind its own inline confirm BEFORE sending |
 | `push`          | `push` + (`cloneContent` or `clearCache`, optional) + `unpushedCommits` | `unpushed` (branch, commits) | Webview gates this behind its own inline confirm BEFORE sending; `cloneContent` runs when `msg.sync` set, else `clearCache` when `msg.cc` set |
 | `pending`       | `pendingCommits`                             | `pending` (env, commits)          |       |
+| `workflows`     | `activeWorkflows`                            | `workflows` (active: `{env: [names]}`) | Background poll every 5s from `pollWorkflows`; drives card spinners for workflows of any origin (see `mem:dom/DOM_DASHBOARD_WORKFLOW_POLLING`) |
 | `deploy`        | `deploy` + (`cloneContent`, optional) + `pendingCommits` | `pending` (env, commits)  | Webview gates this behind its own inline confirm BEFORE sending; `cc: msg.cc && !msg.sync` passed to `deploy()`; `cc` rides the trailing `cloneContent` call instead when `msg.sync` is set |
 
 - Error propagation: any thrown error in `handle()` is caught by `route()` and posted as `{ type: 'error', requestId, message: err.message }`; the webview bridge rejects the pending request promise, and callers render it with `fail()` into the card's status area.
