@@ -29,7 +29,7 @@ obligations:
 
 ## Deploy note (`media/main.js`)
 
-- Prefill: `renderPending(env, commits)` sets `${env}-note` to pending commit messages joined by `\n` — ONLY when the note is empty or still equals the last prefill (`notePrefill[env]`). A user-edited note is NEVER overwritten by a pending-list reload.
+- Prefill: `renderPending(env, commits)` sets `${env}-note` to pending commit messages joined by `\n` (full git subjects, not Terminus' 50-char code-log text) — ONLY when the note is empty or still equals the last prefill (`notePrefill[env]`). A user-edited note is NEVER overwritten by a pending-list reload.
 - Clear: `#${env}-note-clear` (codicon `close`, `.clearable` wrapper, absolutely positioned top-right in `media/main.css`) empties the note, calls `syncButtons()`, focuses the textarea.
 - Lock: `deployEnv` adds `env` to the `deploying` Set on click (before the confirm opens); removed on Cancel or after the deploy request settles. `syncButtons()` disables `${env}-note`, `${env}-note-clear`, `${env}-deploy` while `deploying.has(env)` or the card is `busy`.
 

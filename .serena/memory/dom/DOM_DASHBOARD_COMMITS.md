@@ -27,7 +27,7 @@ obligations:
 
 | Behaviour | Code location (file:function) | Notes |
 | --- | --- | --- |
-| List unpushed | `src/api.js:PantheonApi.unpushedCommits(branch, {fetch})` | Optional `git fetch origin <branch>`, then `git log origin/<branch>..<branch> --format=%H%x1f%an%x1f%ad%x1f%s` (unit-separator-delimited: hash/author/datetime/message) |
+| List unpushed | `src/api.js:PantheonApi.unpushedCommits(branch, {fetch})` | Optional `git fetch origin <branch>`, then `git log origin/<branch>..<branch> --format=%H%x1f%an%x1f%ad%x1f%s` (unit-separator-delimited: hash/author/datetime/message); the log runs through `logCommits` |
 | Branch mapping | `src/panel.js:handle` case `'unpushed'` | `branch = env === 'dev' ? 'master' : env` — dev maps to `master`, multidevs use their own branch name |
 | Route | `src/panel.js:handle` case `'unpushed'` | Returns `{ type: 'unpushed', branch, commits }`; `msg.fetch` passed straight through to `unpushedCommits` |
 | Render | `media/main.js:renderUnpushed` | Sets `state.unpushedCount`/`state.unpushedSig` (hash-joined signature); shows "Sync to {label}" button when commits exist |
@@ -37,11 +37,17 @@ obligations:
 | Push route | `src/panel.js:handle` case `'push'` | NO server-side confirm (no `vscode.window.showWarningMessage`); calls `api.push(site, env, branch)` unconditionally, then: if `msg.sync` set, calls `api.cloneContent(site, msg.sync.from, msg.env, {db, files, cc: msg.cc})`; else if `msg.cc` set, calls `api.clearCache(site, msg.env)`; returns `{ type: 'unpushed', branch, commits: await api.unpushedCommits(branch) }` |
 | Push UI | `media/main.js:syncDev` | Posts `{type:'push', site, env, branch, count, cc, sync}` after confirm resolves; `sync` is `{from, db, files}` when Database or Files checked, else `null`; on success re-renders unpushed list, calls `refreshDownstream('dev')` |
 
-## Pending Commits (test/live envs — code-log, deploy source)
+## Pending Commits (test/live envs — read from local git, deploy source)
+
+Why git: Terminus 4.1.1 `env:code-log --format=json` truncates every commit message to 50 chars; local git subjects are complete. No Terminus call, no fallback; errors reject and show in the card.
 
 | Behaviour | Code location (file:function) | Notes |
 | --- | --- | --- |
-| List pending | `src/api.js:PantheonApi.pendingCommits(site, env)` | source env = `test->dev`, else `->test`; `terminus env:code-log <site>.<source>`; filters commits whose `labels` (comma list) include source but not target env |
+| List pending | `src/api.js:PantheonApi.pendingCommits(site, env)` | `site` unused. test = `<latest pantheon_test tag>..<remote>/master`; live = `<latest pantheon_live tag>..<latest pantheon_test tag>`. Returns `{hash, author, datetime, message}[]` via `logCommits` |
+| Find Pantheon remote | `src/api.js:PantheonApi.pantheonRemote` | Parses `git remote -v`; first remote whose URL matches `ssh://codeserver.dev.<site-id>.drush.in:2222/~/repository.git`. Matches by URL, never by name. No match -> Error "No Pantheon git remote … in this workspace" |
+| Fetch | `src/api.js:PantheonApi.fetchPantheon` | `git fetch <remote> master --tags`; in-flight promise `this.pantheonFetch` shared so concurrent Test and Live refreshes run one fetch; cleared on settle |
+| Latest deploy tag | `src/api.js:PantheonApi.latestDeployTag(env)` | `git tag -l pantheon_<env>_* --sort=-v:refname`, first line (numeric order; lexical would put 999 above 1000). No tag -> Error "No pantheon_<env>_* deploy tag in this repository" |
+| Git log | `src/api.js:PantheonApi.logCommits(range)` | `git log <range> --date=iso-strict --format=%H%x1f%an%x1f%ad%x1f%s` -> `{hash, author, datetime, message}`; shared with `unpushedCommits` |
 | Route | `src/panel.js:handle` case `'pending'` | Returns `{ type: 'pending', env, commits }` |
 | Deploy | `src/api.js:PantheonApi.deploy` | See `mem:dom/DOM_DASHBOARD_DEPLOYS` for full deploy + inline-confirm flow |
 | Render | `media/main.js:renderPending` | Sets `pendingCounts[env]`, updates `${env}-badge` text to `"N pending"`, empty-state "Up to date with {source}" |
@@ -59,7 +65,11 @@ obligations:
 
 - `terminus env:diffstat <site>.<env>` — JSON
 - `terminus env:commit <site>.<env> --message=<msg>`
-- `terminus env:code-log <site>.<env>` — JSON, filtered client-side by `labels`
+- `git remote -v`
+- `git fetch <pantheon-remote> master --tags`
+- `git tag -l pantheon_<env>_* --sort=-v:refname`
+- `git log <testTag>..<remote>/master`
+- `git log <liveTag>..<testTag>`
 - `git fetch origin <branch>`
 - `git log origin/<branch>..<branch> --date=iso-strict --format=%H%x1f%an%x1f%ad%x1f%s`
 - `git push origin <branch>`
