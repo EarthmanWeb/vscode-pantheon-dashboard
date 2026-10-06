@@ -44,7 +44,7 @@ Why git: Terminus 4.1.1 `env:code-log --format=json` truncates every commit mess
 | Behaviour | Code location (file:function) | Notes |
 | --- | --- | --- |
 | List pending | `src/api.js:PantheonApi.pendingCommits(site, env)` | `site` unused. test = `<latest pantheon_test tag>..<remote>/master`; live = `<latest pantheon_live tag>..<latest pantheon_test tag>`. Returns `{hash, author, datetime, message}[]` via `logCommits` |
-| Find Pantheon remote | `src/api.js:PantheonApi.pantheonRemote` | Parses `git remote -v`; first remote whose URL matches `ssh://codeserver.dev.<site-id>.drush.in:2222/~/repository.git`. Matches by URL, never by name. No match -> Error "No Pantheon git remote … in this workspace" |
+| Find Pantheon remote | `src/api.js:PantheonApi.pantheonRemote` | Parses `git remote -v`; first remote whose URL matches `ssh://[<user>@]codeserver.dev.<site-id>.drush.in:2222/~/repository.git`. Matches by URL, never by name. No match -> Error "No Pantheon git remote (ssh://codeserver.dev.<site-id>@codeserver.dev.<site-id>.drush.in:2222/~/repository.git) in this workspace" |
 | Fetch | `src/api.js:PantheonApi.fetchPantheon` | `git fetch <remote> master --tags`; in-flight promise `this.pantheonFetch` shared so concurrent Test and Live refreshes run one fetch; cleared on settle |
 | Latest deploy tag | `src/api.js:PantheonApi.latestDeployTag(env)` | `git tag -l pantheon_<env>_* --sort=-v:refname`, first line (numeric order; lexical would put 999 above 1000). No tag -> Error "No pantheon_<env>_* deploy tag in this repository" |
 | Git log | `src/api.js:PantheonApi.logCommits(range)` | `git log <range> --date=iso-strict --format=%H%x1f%an%x1f%ad%x1f%s` -> `{hash, author, datetime, message}`; shared with `unpushedCommits` |
