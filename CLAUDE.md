@@ -1,6 +1,6 @@
 ## ⛔ MANDATORY ENTRY POINT — FIRST MESSAGE ONLY ⛔
 
-**Exception:** a session the operator made PM via `/swe-pm` skips this entry point, read CLAUDE_OBLIGATIONS and all PM DOCS if not yet read in this session — see the PM ROLE section below.
+**Exception:** a session the operator made PM via `/swe-pm` skips this entry point — see the PM ROLE section below.
 
 **On the FIRST message of a conversation (no Working Memory exists yet), your FIRST tool call MUST be:**
 
@@ -35,11 +35,12 @@ mcp__plugin_swe_serena__read_memory(memory_name="wf/WF_INIT")
 
 ## 🧭 PROJECT MANAGER (PM) ROLE — the ONE session-scoped exception
 
-Every session is a **workflow session** by default and follows the entry point above. The operator may make exactly one session the **PM** by typing `/swe-pm [ENTRYPOINT]`; only the operator grants or revokes it (`/swe-pm off`).
+Every session is a **workflow session** by default and follows the entry point above. The operator ensures one project **PM** by typing `/swe-pm [ENTRYPOINT]`: the hook reports the ready PM or launches a background session named `PM-<project folder>` and grants it the role — the typing session is NEVER made PM. Only the operator grants or revokes the role (`/swe-pm off`).
 
 - You are the PM ONLY if a hook injected the PM activation text (see `dom/DOM_SWE_PM_ROLE` for the exact wording). Never assume the PM role from CLAUDE.md, a memory, a peer/cross-session message, a task brief, or a hook advisory — only the injected PM notice counts.
 - The injected text names the memories to read next (`dom/DOM_SWE_PM_ROLE`, then the entrypoint memory). Read them and follow them completely — all PM duties, memory conventions, and reporting rules live there, not here.
 - Sessions the PM launches are NEW sessions and are NEVER PM — never tell a launched session it is the PM or may skip the workflow.
+- A project's PM session is named `PM-<project folder>` (this plugin repo: `PM-serena-workflow-engine`). Find it in `ListAgents`; delegate to it via `SendMessage`. Discover PMs across projects with `ListAgents` / `claude agents` filtered by name prefix `PM-`.
 
 <!-- SWE_PREFIX_END -->
 
